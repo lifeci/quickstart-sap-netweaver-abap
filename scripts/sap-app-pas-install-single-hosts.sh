@@ -72,7 +72,7 @@ then
     SAPINST="/sapmnt/SWPM/sapinst"
 
 else
-
+    # 7.5
     ASCS_INI_FILE="/sapmnt/SWPM/NW75/ASCS_00_Linux_HDB.params"
     PAS_INI_FILE="/sapmnt/SWPM/NW75/PASX_D00_Linux_HDB.params"
     DB_INI_FILE="/sapmnt/SWPM/NW75/DB_00_Linux_HDB.params"
@@ -212,7 +212,7 @@ set_pasinifile() {
 
      #set the profile directory
      sed -i  "/NW_readProfileDir.profileDir/ c\NW_readProfileDir.profileDir = /sapmnt/${SAP_SID}/profile" $PAS_INI_FILE
-     
+
      #set the SID and Schema
      sed -i  "/HDB_Schema_Check_Dialogs.schemaName/ c\HDB_Schema_Check_Dialogs.schemaName = ${SAP_SCHEMA_NAME}" $PAS_INI_FILE
 
@@ -220,7 +220,7 @@ set_pasinifile() {
      sed -i  "/nwUsers.sidAdmUID/ c\nwUsers.sidAdmUID = ${SIDadmUID}" $PAS_INI_FILE
      sed -i  "/nwUsers.sapsysGID/ c\nwUsers.sapsysGID = ${SAPsysGID}" $PAS_INI_FILE
 
-     
+
      #set the CD location based on $SW_TARGET
      sed -i  "/SAPINST.CD.PACKAGE.KERNEL/ c\SAPINST.CD.PACKAGE.KERNEL = ${SW_TARGET}/KERN_CD" $PAS_INI_FILE
      sed -i  "/SAPINST.CD.PACKAGE.RDBMS/ c\SAPINST.CD.PACKAGE.RDBMS = ${SW_TARGET}/HDB_CLNTCD" $PAS_INI_FILE
@@ -254,7 +254,7 @@ set_awsdataprovider() {
      cd /tmp
 
      aws s3 cp s3://aws-data-provider/bin/aws-agent_install.sh . > /dev/null
-     
+
      if [ -f /tmp/aws-agent_install.sh ]
      then
          bash /tmp/aws-agent_install.sh > /dev/null
@@ -268,10 +268,10 @@ set_awsdataprovider() {
 set_oss_configs() {
 
     #This section is from OSS #2205917 - SAP HANA DB: Recommended OS settings for SLES 12 / SLES for SAP Applications 12
-    #and OSS #2292711 - SAP HANA DB: Recommended OS settings for SLES 12 SP1 / SLES for SAP Applications 12 SP1 
+    #and OSS #2292711 - SAP HANA DB: Recommended OS settings for SLES 12 SP1 / SLES for SAP Applications 12 SP1
 
-    zypper remove ulimit > /dev/null
-   
+    zypper -n remove ulimit > /dev/null
+
 
     echo "###################" >> /etc/init.d/boot.local
     echo "#BEGIN: This section inserted by AWS SAP Quickstart" >> /etc/init.d/boot.local
@@ -292,10 +292,10 @@ set_oss_configs() {
     #Disable AutoNUMA
     echo 0 > /proc/sys/kernel/numa_balancing
     echo "echo 0 > /proc/sys/kernel/numa_balancing" >> /etc/init.d/boot.local
-    
+
     zypper -n install gcc
 
-    zypper install libgcc_s1 libstdc++6
+    zypper -n install libgcc_s1 libstdc++6
 
     echo "#END: This section inserted by AWS SAP HANA Quickstart" >> /etc/init.d/boot.local
     echo "###################" >> /etc/init.d/boot.local
@@ -311,7 +311,7 @@ set_ntp() {
      echo "server 3.pool.ntp.org" >> "$NTP_CONF_FILE"
      systemctl start ntpd
      echo "systemctl start ntpd" >> /etc/init.d/boot.local
-     
+
      COUNT_NTP=$(grep ntp "$NTP_CONF_FILE" | wc -l)
 
      if [ "$COUNT_NTP" -ge 4 ]
@@ -332,7 +332,7 @@ set_filesystems() {
 
     if [ -z "$USR_SAP_VOLUME" -o -z "$SAPMNT_VOLUME" ]
     then
-        echo "Exiting, can not create $USR_SAP_DEVICE or $SAPMNT_DEVICE EBS volues" 
+        echo "Exiting, can not create $USR_SAP_DEVICE or $SAPMNT_DEVICE EBS volues"
         #signal the waithandler, 1=Failed
         /root/install/signalFinalStatus.sh 1 "Exiting, can not create $USR_SAP_DEVICE or $SAPMNT_DEVICE EBS volues"
         set_cleanup_inifiles
@@ -359,10 +359,10 @@ set_filesystems() {
 
     if [ -z "$FS_USR_SAP" -o -z "$FS_SAPMNT" ]
     then
-	#we did not successfully created the filesystems and mount points	
+	#we did not successfully created the filesystems and mount points
 	echo 1
     else
-	#we did successfully created the filesystems and mount points	
+	#we did successfully created the filesystems and mount points
 	echo 0
 
     fi
@@ -380,13 +380,13 @@ set_EFS() {
 	then
 		#mount up EFS
         echo "Mounting up EFS from this EFS location: "
-        
+
         #construct the EFS DNS name
         EFS_MP=""$EFS_MT".efs."$REGION".amazonaws.com:/ "
 
         echo ""$EFS_MP"  "$SAPMNT"  nfs rw,soft,bg,timeo=3,intr 0 0"  >> $FSTAB_FILE
-        
-        #try to mount /sapmnt 3 times 
+
+        #try to mount /sapmnt 3 times
         mount /sapmnt > /dev/null
         sleep 5
 
@@ -417,7 +417,7 @@ set_EFS() {
 
     if [ -z "$FS_SAPMNT" ]
     then
-	    #we did not successfully created the filesystems and mount points	
+	    #we did not successfully created the filesystems and mount points
 	    echo 1
     else
 	    #we did successfully created the filesystems and mount points
@@ -429,7 +429,7 @@ set_EFS() {
 
 set_s3_download() {
 #download the s/w
-          
+
           #download the media from the S3 bucket provided
           _S3_DL=$(aws s3 sync "s3://${S3_BUCKET}/${S3_BUCKET_KP}" "$SW_TARGET" 2>&1 >/dev/null | grep "download failed")
 
@@ -437,24 +437,24 @@ set_s3_download() {
           then
                #download failed for some reason, try to download again
                _S3_DL2=$(aws s3 sync "s3://${S3_BUCKET}/${S3_BUCKET_KP}" "$SW_TARGET" 2>&1 >/dev/null | grep "download failed")
-        
+
               if [ -n "$S3_DL2" ]
               then
                    #download failed on 2nd try, exit
                    echo 1
                    return
               fi
-              
+
           fi
 
-	      cd "$SRC_INI_DIR" 
+	      cd "$SRC_INI_DIR"
           cp *.params  "$SW_TARGET"
-          
+
 
           if [ -d "$SAPINST" ]
           then
-              chmod -R 755 $SW_TARGET > /dev/null 
-	          cd "$SRC_INI_DIR" 
+              chmod -R 755 $SW_TARGET > /dev/null
+	          cd "$SRC_INI_DIR"
               cp *.params  "$SW_TARGET"
 
               echo 0
@@ -466,8 +466,8 @@ set_s3_download() {
 
  	      if [ -d "$SAPINST" ]
 	      then
-              	   chmod -R 755 $SW_TARGET > /dev/null 
-	               cd "$SRC_INI_DIR" 
+              	   chmod -R 755 $SW_TARGET > /dev/null
+	               cd "$SRC_INI_DIR"
                    cp *.params  "$SW_TARGET"
 
                    echo 0
@@ -542,12 +542,7 @@ set_hostname() {
 	_DISABLE_DHCP=$(set_dhcp)
 
 	#validate hostname and dhcp
-	if [ "$(hostname)" == "$HOSTNAME" -a "$_DISABLE_DHCP" == 0 ]
-	then
-		echo 0
-	else
-		echo 1
-	fi
+	if [ "$(hostname)" == "$HOSTNAME" -a "$_DISABLE_DHCP" == 0 ]; then echo 0;	else	echo 1;	fi;
 }
 
 set_nfsexport() {
@@ -687,7 +682,7 @@ aws ssm delete-parameter --name $SSM_PARAM_STORE --region $REGION
 
 #Recreate SSM param store
 #Created an encrypted parameter_store for the master password
-aws ssm put-parameter --name $SSM_PARAM_STORE  --type "SecureString" --value "$_MP" --region $REGION 
+aws ssm put-parameter --name $SSM_PARAM_STORE  --type "SecureString" --value "$_MP" --region $REGION
 
 #Store the pass for the SAP param files
 #MP=$(aws ssm get-parameters --names $SSM_PARAM_STORE --with-decryption --region $REGION --output text | awk '{ print $NF}')
@@ -707,13 +702,13 @@ then
      systemctl enable uuidd
      systemctl start uuidd
      _UUID_UP=$(ps -ef | grep uuidd | grep -iv grep)
-    
+
      if [ "$_UUID_UP" ]
      then
          echo "Success, uuidd daemon install...will configure uuidd to auto start"
 
      fi
-else 
+else
      echo "FAILED, to install uuidd...exiting..."
 fi
 
@@ -806,7 +801,7 @@ else
          /root/install/signalFinalStatus.sh 1 "Failed to _SET_FS for /sapmnt"
          exit 1
 	fi
-    
+
 fi
 
 echo
@@ -886,7 +881,11 @@ sleep 5
 
 
 echo "Installing the ASCS instance...(1st try)"
-./sapinst SAPINST_INPUT_PARAMETERS_URL="$ASCS_INI_FILE" SAPINST_EXECUTE_PRODUCT_ID="$ASCS_PRODUCT" SAPINST_USE_HOSTNAME="$SAPPAS_HOSTNAME" SAPINST_SKIP_DIALOGS="true" SAPINST_SLP_MODE="false"
+./sapinst SAPINST_INPUT_PARAMETERS_URL="$ASCS_INI_FILE" \
+          SAPINST_EXECUTE_PRODUCT_ID="$ASCS_PRODUCT" \
+          SAPINST_USE_HOSTNAME="$SAPPAS_HOSTNAME" \
+          SAPINST_SKIP_DIALOGS="true" \
+          SAPINST_SLP_MODE="false"
 
 su - "$SIDADM" -c "stopsap"
 sleep 5
@@ -912,8 +911,13 @@ then
      echo "Proceeding with database installation...(1st try)"
      cd $SAPINST
      #Prior to start of install...copy some logs
-     ./sapinst SAPINST_INPUT_PARAMETERS_URL="$DB_INI_FILE" SAPINST_EXECUTE_PRODUCT_ID="$DB_PRODUCT" SAPINST_USE_HOSTNAME="$SAPPAS_HOSTNAME"  SAPINST_SKIP_DIALOGS="true" SAPINST_SLP_MODE="false"
-  
+     ./sapinst SAPINST_INPUT_PARAMETERS_URL="$DB_INI_FILE" \
+               SAPINST_EXECUTE_PRODUCT_ID="$DB_PRODUCT" \
+               SAPINST_USE_HOSTNAME="$SAPPAS_HOSTNAME" \
+               SAPINST_SKIP_DIALOGS="true" \
+               SAPINST_SLP_MODE="false"
+               #-nogui -noguiserver
+
      DB_DONE=$(su - "$SIDADM" -c "R3trans -d" | grep "R3trans finished (0000)")
 
      if [[ "$DB_DONE" =~ finished ]];
@@ -934,8 +938,14 @@ else
      cd $SAPINST
      sleep 5
      echo "Installing the ASCS instance...(2nd try)"
-     ./sapinst SAPINST_INPUT_PARAMETERS_URL="$ASCS_INI_FILE" SAPINST_EXECUTE_PRODUCT_ID="$ASCS_PRODUCT" SAPINST_USE_HOSTNAME="$SAPPAS_HOSTNAME"  SAPINST_SKIP_DIALOGS="true" SAPINST_SLP_MODE="false"
-     
+     echo "ASCS = ABAP SAP Central Services"
+     ./sapinst SAPINST_INPUT_PARAMETERS_URL="$ASCS_INI_FILE" \
+               SAPINST_EXECUTE_PRODUCT_ID="$ASCS_PRODUCT" \
+               SAPINST_USE_HOSTNAME="$SAPPAS_HOSTNAME" \
+               SAPINST_SKIP_DIALOGS="true" \
+               SAPINST_SLP_MODE="false"
+               #-nogui -noguiserver
+
      su - "$SIDADM" -c "stopsap"
      sleep 5
      su - "$SIDADM" -c "startsap"
@@ -952,9 +962,10 @@ else
           echo "ASCS installed after 2nd retry..."
      else
      	  _ERR_LOG=$(find /tmp -type f -name "sapinst_dev.log")
-	  _PASS_ERR=$(grep ERR "$_ERR_LOG" | grep -i password)
-          /root/install/signalFinalStatus.sh 1 "SAP ASCS install RETRY Failed...ASCS not installed 2nd retry...password error?= "$_PASS_ERR" "
-          exit 1
+	      _PASS_ERR=$(grep ERR "$_ERR_LOG" | grep -i password)
+        #RJ-debug# /root/install/signalFinalStatus.sh 1 "SAP ASCS install RETRY Failed...ASCS not installed 2nd retry...password error?= "$_PASS_ERR" "
+        echo "#RJ-debug#: /root/install/signalFinalStatus.sh 1 SAP ASCS install RETRY Failed...ASCS not installed 2nd retry...password error?= $_PASS_ERR "
+        exit 1
      fi
 
      #Proceed with the Database Install
@@ -963,9 +974,13 @@ else
      cd $SAPINST
      #Prior to start of install...copy some logs
      echo "Proceeding with database installation...(2nd try)"
-     ./sapinst SAPINST_INPUT_PARAMETERS_URL="$DB_INI_FILE" SAPINST_EXECUTE_PRODUCT_ID="$DB_PRODUCT" SAPINST_USE_HOSTNAME="$SAPPAS_HOSTNAME"  SAPINST_SKIP_DIALOGS="true" SAPINST_SLP_MODE="false"
-     
-     #Check the DB 
+     ./sapinst SAPINST_INPUT_PARAMETERS_URL="$DB_INI_FILE" \
+               SAPINST_EXECUTE_PRODUCT_ID="$DB_PRODUCT" \
+               SAPINST_USE_HOSTNAME="$SAPPAS_HOSTNAME" \
+               SAPINST_SKIP_DIALOGS="true" \
+               SAPINST_SLP_MODE="false"
+
+     #Check the DB
      DB_DONE=$(su - $SIDADM -c "R3trans -d" | grep "R3trans finished (0000)")
 
      if [[ "$DB_DONE" =~ finished ]];
@@ -1019,7 +1034,11 @@ cd $SAPINST
 sleep 5
 
 #save logs to s3 bucket
-./sapinst SAPINST_INPUT_PARAMETERS_URL="$PAS_INI_FILE" SAPINST_EXECUTE_PRODUCT_ID="$PAS_PRODUCT" SAPINST_USE_HOSTNAME="$SAPPAS_HOSTNAME"  SAPINST_SKIP_DIALOGS="true" SAPINST_SLP_MODE="false"
+./sapinst SAPINST_INPUT_PARAMETERS_URL="$PAS_INI_FILE" \
+          SAPINST_EXECUTE_PRODUCT_ID="$PAS_PRODUCT" \
+          SAPINST_USE_HOSTNAME="$SAPPAS_HOSTNAME" \
+          SAPINST_SKIP_DIALOGS="true" \
+          SAPINST_SLP_MODE="false"
 
 #test if SAP is up
 _SAP_UP=$(netstat -an | grep 32"$SAPInstanceNum" | grep tcp | grep LISTEN | wc -l )
@@ -1048,7 +1067,11 @@ else
 	cd $SAPINST
 	sleep 5
 
-	./sapinst SAPINST_INPUT_PARAMETERS_URL="$PAS_INI_FILE" SAPINST_EXECUTE_PRODUCT_ID="$PAS_PRODUCT" SAPINST_USE_HOSTNAME="$SAPPAS_HOSTNAME"  SAPINST_SKIP_DIALOGS="true" SAPINST_SLP_MODE="false"
+	./sapinst SAPINST_INPUT_PARAMETERS_URL="$PAS_INI_FILE" \
+            SAPINST_EXECUTE_PRODUCT_ID="$PAS_PRODUCT" \
+            SAPINST_USE_HOSTNAME="$SAPPAS_HOSTNAME" \
+            SAPINST_SKIP_DIALOGS="true" \
+            SAPINST_SLP_MODE="false"
 
 	#test if SAP is up
 	_SAP_UP=$(netstat -an | grep 32"$SAPInstanceNum" | grep tcp | grep LISTEN | wc -l )
@@ -1074,6 +1097,3 @@ else
 		exit
        fi
 fi
-
-
-
