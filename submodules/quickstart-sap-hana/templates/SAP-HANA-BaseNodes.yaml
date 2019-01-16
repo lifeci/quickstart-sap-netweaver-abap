@@ -977,24 +977,24 @@ Resources:
       SecurityGroupIngress:
         - IpProtocol: tcp
           CidrIp: !Ref PrivSubCIDR
-          FromPort: '1'
-          ToPort: '65535'
+          FromPort: 1
+          ToPort: 65535
         - IpProtocol: udp
           CidrIp: !Ref PrivSubCIDR
-          FromPort: '111'
-          ToPort: '111'
+          FromPort: 111
+          ToPort: 111
         - IpProtocol: udp
           CidrIp: !Ref PrivSubCIDR
-          FromPort: '2049'
-          ToPort: '2049'
+          FromPort: 2049
+          ToPort: 2049
         - IpProtocol: udp
           CidrIp: !Ref PrivSubCIDR
-          FromPort: '4000'
-          ToPort: '4002'
+          FromPort: 4000
+          ToPort: 4002
         - IpProtocol: icmp
           CidrIp: !Ref PrivSubCIDR
-          FromPort: '-1'
-          ToPort: '-1'
+          FromPort: "-1"
+          ToPort: "-1"
         - IpProtocol: tcp
           CidrIp: !Ref DMZCIDR
           FromPort: !Join
@@ -1073,12 +1073,12 @@ Resources:
             - ''
             - - '3'
               - !Ref SAPInstanceNum
-              - 09
+              - '09'
           ToPort: !Join
             - ''
             - - '3'
               - !Ref SAPInstanceNum
-              - 09
+              - '09'
         - IpProtocol: tcp
           CidrIp: !Ref DMZCIDR
           FromPort: !Join
@@ -1093,34 +1093,34 @@ Resources:
               - ''
         - IpProtocol: tcp
           CidrIp: !Ref DMZCIDR
-          FromPort: '8080'
-          ToPort: '8080'
+          FromPort: 8080
+          ToPort: 8080
         - IpProtocol: tcp
           CidrIp: !Ref DMZCIDR
-          FromPort: '8443'
+          FromPort: 8443
           ToPort: '8443'
         - IpProtocol: tcp
           CidrIp: !Ref DMZCIDR
-          FromPort: '1128'
-          ToPort: '1128'
+          FromPort: 1128
+          ToPort: 1128
         - IpProtocol: tcp
           CidrIp: !Ref DMZCIDR
-          FromPort: '1129'
-          ToPort: '1129'
+          FromPort: 1129
+          ToPort: 1129
         - IpProtocol: tcp
           CidrIp: !Ref DMZCIDR
-          FromPort: '22'
-          ToPort: '22'
-        - Description: 'Allow SSH from MainCidrBlock'
-          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+        - IpProtocol: tcp
           FromPort: 22
           ToPort: 22
           CidrIp: !Ref MainCidrBlock
+          #Description: 'Allow SSH from MainCidrBlock'
       SecurityGroupEgress:
-        - IpProtocol: '-1'
+        - IpProtocol: "-1"
           CidrIp: 0.0.0.0/0
-          FromPort: '1'
-          ToPort: '65535'
+          FromPort: 1
+          ToPort: 65535
   HANASecurityGroupUpdate:
     Type: 'AWS::EC2::SecurityGroupIngress'
     Condition: IfAppSubnet
@@ -1147,8 +1147,8 @@ Resources:
       VpcId: !Ref VPCID
       SecurityGroupIngress:
         - IpProtocol: tcp
-          FromPort: '1'
-          ToPort: '65535'
+          FromPort: 1
+          ToPort: 65535
           CidrIp: !Ref PrivSubCIDR
         - IpProtocol: tcp
           FromPort: !Join
@@ -1187,20 +1187,20 @@ Resources:
               - '17'
           CidrIp: !Ref DMZCIDR
         - IpProtocol: tcp
-          FromPort: '1128'
-          ToPort: '1129'
+          FromPort: 1128
+          ToPort: 1129
           CidrIp: !Ref DMZCIDR
         - IpProtocol: tcp
-          FromPort: '8080'
-          ToPort: '8080'
+          FromPort: 8080
+          ToPort: 8080
           CidrIp: !Ref DMZCIDR
         - IpProtocol: tcp
-          FromPort: '8443'
-          ToPort: '8443'
+          FromPort: 8443
+          ToPort: 8443
           CidrIp: !Ref DMZCIDR
         - IpProtocol: tcp
-          FromPort: '22'
-          ToPort: '22'
+          FromPort: 22
+          ToPort: 22
           CidrIp: !Ref DMZCIDR
 
         - Description: 'Allow SSH from MainCidrBlock'
@@ -1209,8 +1209,8 @@ Resources:
           ToPort: 22
           CidrIp: !Ref MainCidrBlock
       SecurityGroupEgress:
-        - IpProtocol: '-1'
-          FromPort: '1'
+        - IpProtocol: "-1"
+          FromPort: 1
           ToPort: '65535'
           CidrIp: 0.0.0.0/0
   HANAIAMRole:
@@ -1394,13 +1394,13 @@ Resources:
       VpcId: !Ref VPCID
       SecurityGroupIngress:
         - IpProtocol: tcp
-          FromPort: '3389'
+          FromPort: 3389
           ToPort: '3389'
           CidrIp: !Ref RemoteAccessCIDR
       SecurityGroupEgress:
         - IpProtocol: tcp
-          FromPort: '1'
-          ToPort: '65535'
+          FromPort: 1
+          ToPort: 65535
           CidrIp: 0.0.0.0/0
   RDPEIP:
     Condition: NeedWindowsInstance

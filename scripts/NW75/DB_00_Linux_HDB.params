@@ -22,10 +22,10 @@ DiagnosticsAgent.sapServiceDASIDPassword =
 HDB_Schema_Check_Dialogs.dropSchema = true
 
 # Name of the Database Schema.
-HDB_Schema_Check_Dialogs.schemaName = SAPABAP1
+#RJ#NP# HDB_Schema_Check_Dialogs.schemaName = SAPABAP1
 
 # Password of the Database Schema.
-HDB_Schema_Check_Dialogs.schemaPassword = 
+HDB_Schema_Check_Dialogs.schemaPassword =
 
 # Should SWPM validate the schema name? Schema name must only contain numbers and capital letters; must not start with '_' , cannot be 'SYS' or 'SYSTEM' etc.
 HDB_Schema_Check_Dialogs.validateSchemaName = true
@@ -64,13 +64,13 @@ NW_ABAP_Import_Dialog.useParallelExportImport = false
 NW_CreateDBandLoad.movePVCforUsagePiAndDi =
 
 # Master password
-NW_GetMasterPassword.masterPwd = 
+NW_GetMasterPassword.masterPwd =
 
 # ABAP schema name
-NW_HDB_DB.abapSchemaName = SAPABAP1
+#RJ#NP# NW_HDB_DB.abapSchemaName = SAPABAP1
 
 # Password of the ABAP schema user.
-NW_HDB_DB.abapSchemaPassword = 
+#RJ#NP# NW_HDB_DB.abapSchemaPassword =
 # Create the tenant
 NW_HDB_getDBInfo.createTenant = false
 
@@ -84,16 +84,16 @@ NW_HDB_getDBInfo.dbsid = N08
 NW_HDB_getDBInfo.instanceNumber = 00
 
 # Password of user SYSTEM inside the SystemDB tenant in SAP HANA MultiDB Server.
-NW_HDB_getDBInfo.systemDbPassword = 
+NW_HDB_getDBInfo.systemDbPassword =
 
 # Name of the SystemDB tenant in SAP HANA MultiDB Server. Default value - SystemDB
 NW_HDB_getDBInfo.systemDbSid =
 
 # Password of user system inside the SAP HANA Database Server
-NW_HDB_getDBInfo.systemPassword = 
+NW_HDB_getDBInfo.systemPassword =
 
 # Password of user system inside the SAP HANA Database Server from a backup
-NW_HDB_getDBInfo.systemPassword = 
+NW_HDB_getDBInfo.systemPassword =
 
 # A dedicated os group for the tenant database. Required on SAP HANA multitenant database container with high isolation level.
 NW_HDB_getDBInfo.tenantOsGroup =
@@ -159,7 +159,7 @@ nwUsers.sidadmPassword =
 storageBasedCopy.hdb.instanceNumber = 00
 
 # Password of user SYSTEM inside the SAP HANA Database Server
-storageBasedCopy.hdb.systemPassword = 
+storageBasedCopy.hdb.systemPassword =
 
 SAPINST.CD.PACKAGE.KERNEL = /sapmnt/SWPM/KERN_CD_7.49
 SAPINST.CD.PACKAGE.RDBMS = /sapmnt/SWPM/HDB_CLNTCD

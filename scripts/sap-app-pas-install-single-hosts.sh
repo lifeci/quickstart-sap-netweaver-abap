@@ -76,9 +76,14 @@ else
     ASCS_INI_FILE="/sapmnt/SWPM/NW75/ASCS_00_Linux_HDB.params"
     PAS_INI_FILE="/sapmnt/SWPM/NW75/PASX_D00_Linux_HDB.params"
     DB_INI_FILE="/sapmnt/SWPM/NW75/DB_00_Linux_HDB.params"
-    ASCS_PRODUCT="NW_ABAP_ASCS:NW750.HDB.ABAPHA"
-    DB_PRODUCT="NW_ABAP_DB:NW750.HDB.ABAPHA"
-    PAS_PRODUCT="NW_ABAP_CI:NW750.HDB.ABAPHA"
+
+    ASCS_PRODUCT="NW_ABAP_ASCS:NW752.HDB.PD"; #NP: PD is almost like HA. Change to ABAPHA if REQUIRED
+    #ASCS_PRODUCT="NW_ABAP_ASCS:NW750.HDB.ABAPHA"
+    DB_PRODUCT="NW_ABAP_DB:NW752.HDB.PD"; #NP: PD is almost like HA. Change to ABAPHA if REQUIRED
+    #DB_PRODUCT="NW_ABAP_DB:NW750.HDB.ABAPHA"
+    PAS_PRODUCT="NW_ABAP_CI:NW752.HDB.PD"; #NP: PD is almost like HA. Change to ABAPHA if REQUIRED
+    #PAS_PRODUCT="NW_ABAP_CI:NW750.HDB.ABAPHA"
+
     SW_TARGET="/sapmnt/SWPM/NW75"
     SRC_INI_DIR="/root/install/NW75"
     SAPINST="/sapmnt/SWPM/NW75/sapinst"
@@ -147,7 +152,7 @@ set_install_ssm() {
 set_dbinifile() {
 #set the vname of the database server in the INI file
 
-     #set the db server hostname
+     #set the db server hostname | FQDN required?
      sed -i  "/NW_HDB_getDBInfo.dbhost/ c\NW_HDB_getDBInfo.dbhost = ${DBHOSTNAME}" $DB_INI_FILE
      sed -i  "/hdb.create.dbacockpit.user/ c\hdb.create.dbacockpit.user = false" $DB_INI_FILE
 
@@ -174,6 +179,9 @@ set_dbinifile() {
      sed -i  "/SAPINST.CD.PACKAGE.RDBMS/ c\SAPINST.CD.PACKAGE.RDBMS = ${SW_TARGET}/HDB_CLNTCD" $DB_INI_FILE
      sed -i  "/SAPINST.CD.PACKAGE.LOAD/ c\SAPINST.CD.PACKAGE.LOAD = ${SW_TARGET}/EXP_CD" $DB_INI_FILE
 
+     #set downloadBasket location based on $KERN_SAR
+     sed -i  "/archives.downloadBasket/ c\archives.downloadBasket = ${SW_TARGET}/$KERN_SAR" $DB_INI_FILE
+
 }
 
 set_ascsinifile() {
@@ -194,6 +202,11 @@ set_ascsinifile() {
      sed -i  "/SAPINST.CD.PACKAGE.KERNEL/ c\SAPINST.CD.PACKAGE.KERNEL = ${SW_TARGET}/KERN_CD" $ASCS_INI_FILE
      sed -i  "/SAPINST.CD.PACKAGE.RDBMS/ c\SAPINST.CD.PACKAGE.RDBMS = ${SW_TARGET}/HDB_CLNTCD" $ASCS_INI_FILE
 
+     #set downloadBasket location based on $KERN_SAR
+     sed -i  "/archives.downloadBasket/ c\archives.downloadBasket = ${SW_TARGET}/$KERN_SAR" $ASCS_INI_FILE
+
+     #set NW_SCS_Instance.scsVirtualHostname | FQDN required?
+     sed -i  "/NW_SCS_Instance.scsVirtualHostname/ c\NW_SCS_Instance.scsVirtualHostname = ${HOSTNAME}" $ASCS_INI_FILE
 }
 
 
@@ -225,6 +238,9 @@ set_pasinifile() {
      sed -i  "/SAPINST.CD.PACKAGE.KERNEL/ c\SAPINST.CD.PACKAGE.KERNEL = ${SW_TARGET}/KERN_CD" $PAS_INI_FILE
      sed -i  "/SAPINST.CD.PACKAGE.RDBMS/ c\SAPINST.CD.PACKAGE.RDBMS = ${SW_TARGET}/HDB_CLNTCD" $PAS_INI_FILE
      sed -i  "/SAPINST.CD.PACKAGE.LOAD/ c\SAPINST.CD.PACKAGE.LOAD = ${SW_TARGET}/EXP_CD" $PAS_INI_FILE
+
+     #set downloadBasket location based on $KERN_SAR
+     sed -i  "/archives.downloadBasket/ c\archives.downloadBasket = ${SW_TARGET}/$KERN_SAR" $PAS_INI_FILE
 
 }
 
