@@ -3,6 +3,13 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: (0008) Deploy SAP HANA on AWS
 Parameters:
+  RdpVersion:
+    Type: String
+    Default: WS2012R2
+  RdpAdminPswd:
+    Type: String
+    NoEcho: 'true'
+    Default: ''
   MainCidrBlock:
     Type: String
   VPCID:
@@ -178,6 +185,7 @@ Parameters:
     Description: Instance type for Windows RDP instance.
     Default: c4.large
     AllowedValues:
+      - t2.small #RJ
       - c4.large
       - c4.xlarge
       - c5.large
@@ -392,6 +400,10 @@ Metadata:
       ApplicationCIDR:
         default: Enter CIDR block of your SAP Application Servers
 Conditions:
+  RdpAdminPswdCond: !Not
+    - !Equals
+      - !Ref RdpAdminPswd
+      - ''
   TwoOrMoreNodes: !Or
     - !Equals
       - '2'
@@ -553,6 +565,7 @@ Mappings:
       SLES12SP2SAPBYOSHVM: suse-sles-sap-12-sp2-byos-v20180816-hvm-ssd-x86_64
       SLES12SP3SAPBYOSHVM: suse-sles-sap-12-sp3-byos-v20180814-hvm-ssd-x86_64
       WS2012R2: Windows_Server-2012-R2_RTM-English-64Bit-Base-2018.10.14
+      WS2019: Windows_Server-2019-English-Full-Base-2019.01.10
     ap-northeast-1:
       RHEL73SAPHVM: ami-e5036283
       RHEL75SAPHVM: ami-0ce47f39a0a21f61e
@@ -567,6 +580,7 @@ Mappings:
       SLES12SP3SAPBYOSHVM: ami-0b0ded1fd5d53c9e9
       SLES12SP3SAPHVM: ami-05e66d665f69082c4
       WS2012R2: ami-0a45b66bda01c89c8
+      WS2019: need-ami
     ap-northeast-2:
       RHEL73SAPHVM: ami-e0e5468e
       RHEL75SAPHVM: ami-06db50be1842d6b9a
@@ -581,6 +595,7 @@ Mappings:
       SLES12SP3SAPBYOSHVM: ami-09a3d6b40137b0c62
       SLES12SP3SAPHVM: ami-071d0cc87c99d6fca
       WS2012R2: ami-0b3a3970b73d5b63a
+      WS2019: need-ami
     ap-south-1:
       RHEL73SAPHVM: ami-f383d59c
       RHEL75SAPHVM: ami-0afdd099cb4cacadf
@@ -595,6 +610,7 @@ Mappings:
       SLES12SP3SAPBYOSHVM: ami-08f3e25abb82c7b6b
       SLES12SP3SAPHVM: ami-0786e9ea7350f5931
       WS2012R2: ami-0bd1dc65d74266ee2
+      WS2019: need-ami
     ap-southeast-1:
       RHEL73SAPHVM: ami-92ef90ee
       RHEL75SAPHVM: ami-08fc0673d9d83037a
@@ -609,6 +625,7 @@ Mappings:
       SLES12SP3SAPBYOSHVM: ami-059895770fc7c71d6
       SLES12SP3SAPHVM: ami-0a03524280ada8595
       WS2012R2: ami-0bf96f139bff648cc
+      WS2019: need-ami
     ap-southeast-2:
       RHEL73SAPHVM: ami-f6d62994
       RHEL75SAPHVM: ami-0a8af8e94f35319ba
@@ -623,6 +640,7 @@ Mappings:
       SLES12SP3SAPBYOSHVM: ami-0249d633f929faf81
       SLES12SP3SAPHVM: ami-0cb175ddfd285fd68
       WS2012R2: ami-0664c039c4dea5193
+      WS2019: need-ami
     ca-central-1:
       RHEL73SAPHVM: ami-2a63e64e
       RHEL75SAPHVM: ami-010ef109ec0f43d6d
@@ -636,6 +654,7 @@ Mappings:
       SLES12SP3SAPBYOSHVM: ami-0b480fe4a1992dfcb
       SLES12SP3SAPHVM: ami-3d3db059
       WS2012R2: ami-0a27bbef221046aae
+      WS2019: need-ami
     eu-central-1:
       RHEL73SAPHVM: ami-d866f9b7
       RHEL75SAPHVM: ami-0841ec948df565271
@@ -650,6 +669,7 @@ Mappings:
       SLES12SP3SAPBYOSHVM: ami-035997e605600f24d
       SLES12SP3SAPHVM: ami-01517077c8ef929c7
       WS2012R2: ami-0d55859ee09a59138
+      WS2019: need-ami
     eu-west-1:
       RHEL73SAPHVM: ami-e365fd9a
       RHEL75SAPHVM: ami-04a014a7d626b3fd8
@@ -664,6 +684,7 @@ Mappings:
       SLES12SP3SAPBYOSHVM: ami-0dc906e72df071f00
       SLES12SP3SAPHVM: ami-0dd261bbc18ff512a
       WS2012R2: ami-01dbaf1c50a36891d
+      WS2019: ami-046ad87f7b7598d2e
     eu-west-2:
       RHEL73SAPHVM: ami-03fee567
       RHEL75SAPHVM: ami-070b8ef548695f653
@@ -677,6 +698,7 @@ Mappings:
       SLES12SP3SAPBYOSHVM: ami-0511a35ec641e8d42
       SLES12SP3SAPHVM: ami-007f4f140fb79e469
       WS2012R2: ami-0a7551990da17b8d6
+      WS2019: need-ami
     eu-west-3:
       RHEL73SAPHVM: ami-7ae85e07
       RHEL75SAPHVM: ami-0b9d6c1ae0e94e8a9
@@ -689,6 +711,7 @@ Mappings:
       SLES12SP3SAPBYOSHVM: ami-02aade11c6173a417
       SLES12SP3SAPHVM: ami-0f7cb07e8a64837da
       WS2012R2: ami-040ef025ec13d58bf
+      WS2019: need-ami
     sa-east-1:
       RHEL73SAPHVM: ami-0b8ac767
       RHEL75SAPHVM: ami-0a9ee704defec0845
@@ -703,6 +726,7 @@ Mappings:
       SLES12SP3SAPBYOSHVM: ami-04dacddc0bed7ea0c
       SLES12SP3SAPHVM: ami-0bce441632c6a4f49
       WS2012R2: ami-01d74c2e93478e2f5
+      WS2019: need-ami
     us-east-1:
       RHEL73SAPHVM: ami-39f0de43
       RHEL75SAPHVM: ami-05cd8f1730c8df7dc
@@ -719,6 +743,7 @@ Mappings:
       SLES12SP3SAPBYOSHVM: ami-0a716f006d0e61fda
       SLES12SP3SAPHVM: ami-0670bf4d2d9a6151b
       WS2012R2: ami-0fba87d7f8c8744d4
+      WS2019: need-ami
     us-east-2:
       RHEL73SAPHVM: ami-bbe4cede
       RHEL75SAPHVM: ami-0b1439383ea0d0c87
@@ -733,6 +758,7 @@ Mappings:
       SLES12SP3SAPBYOSHVM: ami-0ce850e2837a005b7
       SLES12SP3SAPHVM: ami-046343b8758067d02
       WS2012R2: ami-0679e5ac84d15f15e
+      WS2019: need-ami
     us-west-1:
       RHEL73SAPHVM: ami-0be4e66b
       RHEL75SAPHVM: ami-015c680b92b8f8e04
@@ -747,6 +773,7 @@ Mappings:
       SLES12SP3SAPBYOSHVM: ami-07e600a32a750ad05
       SLES12SP3SAPHVM: ami-08c9d05a34bc4f225
       WS2012R2: ami-04370c2a300903acc
+      WS2019: need-ami
     us-west-2:
       RHEL73SAPHVM: ami-edfa4895
       RHEL75SAPHVM: ami-07894ab0a4a5e8612
@@ -761,23 +788,7 @@ Mappings:
       SLES12SP3SAPBYOSHVM: ami-0da29a8e3dc64a63f
       SLES12SP3SAPHVM: ami-b73516cf
       WS2012R2: ami-02e27664434db6def
-Outputs:
-  HANAMasterInstanceIP:
-    Description: HANA Master Node IP Address
-    Value: !GetAtt
-      - HANAMasterInstance
-      - PrivateIp
-  HANAMasterSecurityGroup:
-    Description: Security Group created for the SAP HANA Master node
-    Value: !GetAtt
-      - HANASecurityGroup
-      - GroupId
-  HANAMasterInstanceRole:
-    Description: Instance Role Name for HANA Instance
-    Value: !Ref HANAIAMRole
-  HANAMasterInstanceId:
-    Description: Instance Id for HANA Instance
-    Value: !Ref HANAMasterInstance
+      WS2019: need-ami
 Resources:
   Trail:
     DependsOn:
@@ -1438,7 +1449,7 @@ Resources:
       ImageId: !FindInMap
         - AWSAMIRegionMap
         - !Ref 'AWS::Region'
-        - WS2012R2
+        - !Ref RdpVersion #WS2012R2
       IamInstanceProfile: !Ref RDPProfile
       Tags:
         - Key: Name
@@ -1450,11 +1461,26 @@ Resources:
           - - |
               <powershell>
             - |
-              Set-ExecutionPolicy RemoteSigned -Force
+              Set-ExecutionPolicy RemoteSigned -Force;
             - >
               Start-Process -FilePath msiexec -ArgumentList /i,
               "http://sdk-for-net.amazonwebservices.com/latest/AWSToolsAndSDKForNet.msi",
-              /passive -wait
+              /passive -wait;
+            - |
+               $ComputerName=(get-childitem -path env:computername).Value;
+               echo "NLA: before"; (Get-WmiObject -class Win32_TSGeneralSetting -Namespace root\cimv2\terminalservices -ComputerName $ComputerName -Filter "TerminalName='RDP-tcp'").UserAuthenticationRequired;
+               echo "NLA: disabling"; (Get-WmiObject -class Win32_TSGeneralSetting -Namespace root\cimv2\terminalservices -ComputerName $ComputerName -Filter "TerminalName='RDP-tcp'").SetUserAuthenticationRequired(0);
+               echo "NLA: after"; (Get-WmiObject -class Win32_TSGeneralSetting -Namespace root\cimv2\terminalservices -ComputerName $ComputerName -Filter "TerminalName='RDP-tcp'").UserAuthenticationRequired;
+            # https://docs.microsoft.com/en-us/windows-server/remote/remote-desktop-services/clients/remote-desktop-allow-access#why-allow-connections-only-with-network-level-authentication;
+            - !If
+              - RdpAdminPswdCond
+              - !Sub
+                - 'net user Administrator "${psw}"; '
+                -
+                  psw: !Ref RdpAdminPswd
+              - echo "pswd need to be encrypted via pem key";
+            - |
+              echo "completed bootstrap";
             - </powershell>
   HANAMasterInstance:
     Type: 'AWS::EC2::Instance'
@@ -3231,3 +3257,23 @@ Resources:
       Dimensions:
         - Name: InstanceId
           Value: !Ref HANAWorkerInstance5
+Outputs:
+  HANAMasterInstanceIP:
+    Description: HANA Master Node IP Address
+    Value: !GetAtt
+      - HANAMasterInstance
+      - PrivateIp
+  HANAMasterSecurityGroup:
+    Description: Security Group created for the SAP HANA Master node
+    Value: !GetAtt
+      - HANASecurityGroup
+      - GroupId
+  HANAMasterInstanceRole:
+    Description: Instance Role Name for HANA Instance
+    Value: !Ref HANAIAMRole
+  HANAMasterInstanceId:
+    Description: Instance Id for HANA Instance
+    Value: !Ref HANAMasterInstance
+  RDPEIP:
+    Condition: NeedWindowsInstance
+    Value: !Ref RDPEIP
