@@ -1068,7 +1068,7 @@ then
 	touch "$PAS_DONE"
 	#signal the waithandler, 0=Success
 	/root/install/signalFinalStatus.sh 0 "Successfully installed SAP. First try..."
-        set_cleanup_inifiles
+        #RJ-debug# set_cleanup_inifiles
 	#create the /etc/sap-app-quickstart file
 	touch /etc/sap-app-quickstart
 	chmod 1777 /tmp
@@ -1100,7 +1100,7 @@ else
 		touch "$PAS_DONE"
 		#signal the waithandler, 0=Success
 		/root/install/signalFinalStatus.sh 0 "SAP successfully install...after RETRY"
-                set_cleanup_inifiles
+                #RJ-debug# set_cleanup_inifiles
 		#create the /etc/sap-app-quickstart file
 		touch /etc/sap-app-quickstart
 		chmod 1777 /tmp
@@ -1109,7 +1109,7 @@ else
 		echo "SAP PAS failed to install...exiting"
 		#signal the waithandler, 1=Failed
 		/root/install/signalFinalStatus.sh 1 "SAP PAS failed to install...exiting"
-                set_cleanup_inifiles
+                #RJ-debug# set_cleanup_inifiles
 		exit
        fi
 fi
