@@ -1479,6 +1479,23 @@ Resources:
                 -
                   psw: !Ref RdpAdminPswd
               - echo "pswd need to be encrypted via pem key";
+
+            - |
+              echo "setting internal dns suffix:"
+            - !Sub '$DnsArray=(get-DnsClientGlobalSetting).SuffixSearchList; $DnsArray += ${DomainName};'
+            - |
+              echo "Before: $DnsArray";
+                Set-DnsClientGlobalSetting -SuffixSearchList $DnsArray;
+              echo "After: $((get-DnsClientGlobalSetting).SuffixSearchList)";
+
+            - |
+              echo " Is Ipv6 enabled?: $( (Get-NetAdapter | get-NetAdapterBinding -ComponentID "ms_tcpip6").Enabled )";
+                Get-NetAdapter | get-NetAdapterBinding | Disable-NetAdapterBinding -ComponentID ms_tcpip6 -AsJob;
+              echo " Is Ipv6 enabled?: $( (Get-NetAdapter | get-NetAdapterBinding -ComponentID "ms_tcpip6").Enabled )";
+            - |
+              $ChromeVersion = "latest"; $ChromeInstURL = "http://dl.google.com/chrome/install/$ChromeVersion/chrome_installer.exe"
+              $Path = $env:TEMP; $Installer = "chrome_installer.exe"; Invoke-WebRequest "$ChromeInstURL" -OutFile $Path\$Installer;
+              Start-Process -FilePath $Path\$Installer -Args "/silent /install" -Verb RunAs -Wait; Remove-Item $Path\$Installer
             - |
               echo "completed bootstrap";
             - </powershell>
