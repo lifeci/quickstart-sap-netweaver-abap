@@ -2,10 +2,10 @@
 
 
 # ------------------------------------------------------------------
-# 
+#
 #          Watches HANA Cluster
 #          Uses dynamodb as a proxy to maintain status of HANA nodes
-#          Valid states are 
+#          Valid states are
 #          TABLE_INIT_COMPLETE
 #               PRE_INSTALL_COMPLETE
 #                   |HANDSHAKE
@@ -22,19 +22,19 @@ TEST_IP=${RANDOM}
 JQ_COMMAND=/root/install/jq
 export PATH=${PATH}:/sbin:/usr/sbin:/usr/local/sbin:/root/bin:/usr/local/bin:/usr/bin:/bin:/usr/bin/X11:/usr/X11R6/bin:/usr/games:/usr/lib/AmazonEC2/ec2-api-tools/bin:/usr/lib/AmazonEC2/ec2-ami-tools/bin:/usr/lib/mit/bin:/usr/lib/mit/sbin
 
-usage() { 
+usage() {
     cat <<EOF
     Usage: $0 [options]
         -h print usage
         -c Create DyanamoDB Table
-        -b Block until table is created 
+        -b Block until table is created
         -r Delete table
         -s Update Status
         -i Insert/Update Item (key=value pair)
         -n Table Name (default: HANAMonitor)
-        -q Query number of HANA nodes in a given state 
+        -q Query number of HANA nodes in a given state
         -w Wait until #HANA nodes reach a specific state (status=N)
-        -p Print Table 
+        -p Print Table
 EOF
     exit 0
 }
@@ -73,7 +73,7 @@ while getopts "hcbprs:i:n:q:w:" o; do
             ;;
         w) WAIT_STATUS_COUNT_PAIR=${OPTARG}
             ;;
-        *) 
+        *)
             usage
             ;;
     esac
@@ -82,9 +82,9 @@ done
 # ------------------------------------------------------------------
 #          Make sure all input parameters are filled
 # ------------------------------------------------------------------
-source /root/install/config.sh                    
-source /root/install/os.sh                    
-                    
+source /root/install/config.sh
+source /root/install/os.sh
+
 [[ -z "$TABLE_NAME" ]] && source /root/install/config.sh
 shift $((OPTIND-1))
 [[ $# -gt 0 ]] && usage;
@@ -99,7 +99,7 @@ log() {
 }
 
 
-source /root/install/config.sh 
+source /root/install/config.sh
 export AWS_DEFAULT_REGION=${REGION}
 
 # ------------------------------------------------------------------
@@ -108,7 +108,7 @@ export AWS_DEFAULT_REGION=${REGION}
 
 #Check if SIG_FLAG_FILE is present
 
-if [ $(issignal_check) == 1 ] 
+if [ $(issignal_check) == 1 ]
 then
     #Exit since there is a signal file
     log "Exiting $0 script at `date` because $SIG_FLAG_FILE exists"
@@ -130,14 +130,14 @@ WaitUntilTableActive() {
           *ACTIVE* ) break;;
         esac
     sleep 10
-    done 
+    done
 }
 
 
 IfTableFound() {
     status=$(/usr/local/bin/aws dynamodb describe-table --table-name ${TABLE_NAME} 2>&1)
 	[[ ${status} == *"not found"* ]] && echo 0 && return
-	echo 1	
+	echo 1
 }
 
 
@@ -190,7 +190,7 @@ CreateTable() {
         --key-schema \
             AttributeName=PrivateIpAddress,KeyType=HASH \
         --provisioned-throughput ReadCapacityUnits=1,WriteCapacityUnits=1 >> ${HANA_LOG_FILE} 2>&1
-    
+
     log "Waiting for table creation"
     WaitUntilTableActive
     log "DynamoDB Table: ${TABLE_NAME} Ready!"
@@ -214,7 +214,7 @@ DeleteTable() {
 GetMyIp() {
     ip=$(ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | awk '{ print $1}')
     # Begin RHEL 7.2  addition
-    if [ $ip = '']; then
+    if [ "$ip" == '' ]; then
     ip=$(ifconfig eth0 | grep 'inet ' | cut -d: -f2 | awk '{ print $2}')
     fi
     # End RHEL 7.2 addition
@@ -247,7 +247,7 @@ InsertMyKeyValueS() {
     keyjson_template='{"PrivateIpAddress": {
         "S": "myip"
         }}'
-    myip=$(GetMyIp)  
+    myip=$(GetMyIp)
     keyjson=$(echo -n ${keyjson_template} | sed "s/myip/${myip}/g")
 
     insertjson_template='{"key": {
@@ -258,11 +258,11 @@ InsertMyKeyValueS() {
             }
         }'
 
-    insertjson=$(echo -n ${insertjson_template} | sed "s/key/${key}/g")    
-    insertjson=$(echo -n ${insertjson} | sed "s/value/${value}/g")    
+    insertjson=$(echo -n ${insertjson_template} | sed "s/key/${key}/g")
+    insertjson=$(echo -n ${insertjson} | sed "s/value/${value}/g")
     cmd=$(echo  "/usr/local/bin/aws dynamodb update-item --table-name ${TABLE_NAME} --key '${keyjson}' --attribute-updates '${insertjson}'")
-	log "${cmd}"	
-    echo ${cmd} | sh 
+	log "${cmd}"
+    echo ${cmd} | sh
 
 
 }
@@ -273,7 +273,7 @@ InsertMyKeyValueS() {
 
 InitMyTable() {
     myip=$(GetMyIp)
-    json_template='{ "PrivateIpAddress": {"S": "myip" }, 
+    json_template='{ "PrivateIpAddress": {"S": "myip" },
             "Status": {"S": "TABLE_INIT_COMPLETE"},
             "StatusAck": {"S": "TABLE_INIT_COMPLETE_ACK"}
         }'
@@ -304,7 +304,7 @@ SetMyStatus() {
     keyjson_template='{"PrivateIpAddress": {
         "S": "myip"
         }}'
-    myip=$(GetMyIp)    
+    myip=$(GetMyIp)
     keyjson=$(echo -n ${keyjson_template} | sed "s/myip/${myip}/g")
 
     updatejson_template='{"Status": {
@@ -315,9 +315,9 @@ SetMyStatus() {
             }
         }'
 
-    updatejson=$(echo -n ${updatejson_template} | sed "s/mystatus/${status}/g")    
+    updatejson=$(echo -n ${updatejson_template} | sed "s/mystatus/${status}/g")
     cmd=$(echo  "/usr/local/bin/aws dynamodb update-item --table-name ${TABLE_NAME} --key '${keyjson}' --attribute-updates '${updatejson}'")
-    echo ${cmd} | sh 
+    echo ${cmd} | sh
 
 }
 
@@ -337,7 +337,7 @@ QueryStatusCount(){
     status=$1
     if [ -z "$status" ]; then
         echo "StatusCountQuery invalid!"
-        return 
+        return
     fi
     /usr/local/bin/aws dynamodb scan --table-name ${TABLE_NAME} --scan-filter '
             { "Status" : {
@@ -410,8 +410,8 @@ WaitForSpecificStatus() {
             log "WaitForSpecificStatus END ($1) in cluster-watch-engine.sh"
             return
         fi
-    done 
-	
+    done
+
 
 
 }
@@ -475,4 +475,3 @@ if [ $TEST_ENVIRON -eq 1 ]; then
         SetMyStatus "COMPLETE"
     done
 fi
-

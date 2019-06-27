@@ -116,6 +116,8 @@ Metadata:
       VPCID:
         default: Choose VPC ID
 Parameters:
+  MainCidrBlock:
+    Type: String
   KernSar:
     Type: String
     Description: folder with SAR archives (latest)
@@ -635,9 +637,29 @@ Resources:
   SAPAASSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
-      GroupDescription: Enable access to the SAP Servers
+      GroupDescription: Enable access to the SAP Servers.
       VpcId: !Ref VPCID
       SecurityGroupIngress:
+        #RJ-debug temporary: open port for Narotham during AAS 00 installation
+        - Description: 'based on ID it have to be 3600, but opening 3601'
+          IpProtocol: tcp
+          CidrIp: !Ref MainCidrBlock
+          FromPort: '3601'
+          ToPort: '3601'
+
+        - Description: 'based on ID it have to be 3900, but opening 3901'
+          IpProtocol: tcp
+          CidrIp: !Ref MainCidrBlock
+          FromPort: '3901'
+          ToPort: '3901'
+
+        #RJ-debug# Allow connection for sapinst web gui
+        - Description: 'RJ-debug: sapinst web gui NW'
+          IpProtocol: tcp
+          CidrIp: !Ref MainCidrBlock
+          FromPort: '4237'
+          ToPort: '4237'
+
         - IpProtocol: udp
           CidrIp: !Ref PrivateSubnet1CIDR
           FromPort: 111

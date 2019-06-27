@@ -3,13 +3,13 @@
 
 # ------------------------------------------------------------------
 # Fence progress of HANA cluster to make sure they all sync up
-# Update own StatusAck and make sure all nodes acknowledges its status 
+# Update own StatusAck and make sure all nodes acknowledges its status
 # ------------------------------------------------------------------
 
 JQ_COMMAND=/root/install/jq
 export PATH=${PATH}:/sbin:/usr/sbin:/usr/local/sbin:/root/bin:/usr/local/bin:/usr/bin:/bin:/usr/bin/X11:/usr/X11R6/bin:/usr/games:/usr/lib/AmazonEC2/ec2-api-tools/bin:/usr/lib/AmazonEC2/ec2-ami-tools/bin:/usr/lib/mit/bin:/usr/lib/mit/sbin
 
-usage() { 
+usage() {
     cat <<EOF
     Usage: $0 [options]
         -h print usage
@@ -35,7 +35,7 @@ while getopts "h:n:w:" o; do
             ;;
         n) TABLE_NAME=${OPTARG}
             ;;
-        *) 
+        *)
             usage
             ;;
     esac
@@ -44,8 +44,8 @@ done
 # ------------------------------------------------------------------
 #          Make sure all input parameters are filled
 # ------------------------------------------------------------------
-                    
-                    
+
+
 [[ -z "$TABLE_NAME" ]] && source /root/install/config.sh
 shift $((OPTIND-1))
 [[ $# -gt 0 ]] && usage;
@@ -60,8 +60,8 @@ log() {
 }
 
 
-source /root/install/config.sh 
-source /root/install/os.sh 
+source /root/install/config.sh
+source /root/install/os.sh
 
 export AWS_DEFAULT_REGION=${REGION}
 
@@ -77,7 +77,7 @@ fi
 GetMyIp() {
     ip=$(ifconfig eth0 | grep 'inet addr:' | cut -d: -f2 | awk '{ print $1}')
     # Begin RHEL 7.2  addition
-    if [ $ip = '']; then
+    if [ "$ip" = '']; then
     ip=$(ifconfig eth0 | grep 'inet ' | cut -d: -f2 | awk '{ print $2}')
     fi
     # End RHEL 7.2 addition
@@ -106,7 +106,7 @@ InsertMyKeyValueS() {
     keyjson_template='{"PrivateIpAddress": {
         "S": "myip"
         }}'
-    myip=$(GetMyIp)  
+    myip=$(GetMyIp)
     keyjson=$(echo -n ${keyjson_template} | sed "s/myip/${myip}/g")
 
     insertjson_template='{"key": {
@@ -117,11 +117,11 @@ InsertMyKeyValueS() {
             }
         }'
 
-    insertjson=$(echo -n ${insertjson_template} | sed "s/key/${key}/g")    
-    insertjson=$(echo -n ${insertjson} | sed "s/value/${value}/g")    
+    insertjson=$(echo -n ${insertjson_template} | sed "s/key/${key}/g")
+    insertjson=$(echo -n ${insertjson} | sed "s/value/${value}/g")
     cmd=$(echo  "/usr/local/bin/aws dynamodb update-item --table-name ${TABLE_NAME} --key '${keyjson}' --attribute-updates '${insertjson}'")
-	log "${cmd}"	
-    echo ${cmd} | sh 
+	log "${cmd}"
+    echo ${cmd} | sh
 
 
 }
@@ -139,7 +139,7 @@ AckMyStatus() {
     keyjson_template='{"PrivateIpAddress": {
         "S": "myip"
         }}'
-    myip=$(GetMyIp)    
+    myip=$(GetMyIp)
     keyjson=$(echo -n ${keyjson_template} | sed "s/myip/${myip}/g")
 
     updatejson_template='{"StatusAck": {
@@ -150,9 +150,9 @@ AckMyStatus() {
             }
         }'
 
-    updatejson=$(echo -n ${updatejson_template} | sed "s/mystatus/${status}/g")    
+    updatejson=$(echo -n ${updatejson_template} | sed "s/mystatus/${status}/g")
     cmd=$(echo  "/usr/local/bin/aws dynamodb update-item --table-name ${TABLE_NAME} --key '${keyjson}' --attribute-updates '${updatejson}'")
-    echo ${cmd} | sh 
+    echo ${cmd} | sh
 
 }
 
@@ -166,7 +166,7 @@ QueryStatusAckCount(){
     status=$1
     if [ -z "$status" ]; then
         echo "StatusAckCountQuery invalid!"
-        return 
+        return
     fi
     count=$(/usr/local/bin/aws dynamodb scan --table-name ${TABLE_NAME} --scan-filter '
             { "StatusAck" : {
@@ -200,7 +200,7 @@ WaitForSpecificStatusAck() {
     status=$(echo $status_count_pair | /usr/bin/awk -F'=' '{print $1}')
     expected_count=$(echo $status_count_pair | /usr/bin/awk -F'=' '{print $2}')
 	log "Checking for ${status} = ${expected_count} times in fence-cluster.sh"
-   
+
     $(AckMyStatus ${status})
     while true; do
         count=$(QueryStatusAckCount ${status})
@@ -213,8 +213,8 @@ WaitForSpecificStatusAck() {
             log "WaitForSpecificStatusAck END ($1) in fence-cluster.sh"
             return
         fi
-    done 
-	
+    done
+
 
 
 }
@@ -222,4 +222,3 @@ WaitForSpecificStatusAck() {
 if [ $WAIT_STATUS_COUNT_PAIR ]; then
     WaitForSpecificStatusAck $WAIT_STATUS_COUNT_PAIR
 fi
-

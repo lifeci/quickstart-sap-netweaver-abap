@@ -203,7 +203,7 @@ set_pasinifile() {
 
      #set the profile directory
      sed -i  "/NW_readProfileDir.profileDir/ c\NW_readProfileDir.profileDir = /sapmnt/${SAP_SID}/profile" $PAS_INI_FILE
-     
+
      #set the SID and Schema
      sed -i  "/HDB_Schema_Check_Dialogs.schemaName/ c\HDB_Schema_Check_Dialogs.schemaName = ${SAP_SCHEMA_NAME}" $PAS_INI_FILE
 
@@ -318,7 +318,7 @@ set_DB_hostname() {
 
 	#add own hostname
 	MY_IP=$( ip a | grep inet | grep eth0 | awk -F"/" '{ print $1 }' | awk '{ print $2 }')
-	echo "${MY_IP}"    "${HOSTNAME}" >> /etc/hosts  
+	echo "${MY_IP}"    "${HOSTNAME}" >> /etc/hosts
 
 	#echo "$SAP_PASIP  $SAP_PAS" >> $HOSTS_FILE
 	#echo "$SAP_PASIP  $SAP_PAS" >> $HOSTS_FILE
@@ -369,13 +369,13 @@ set_sapmnt() {
 	then
 		#mount up EFS
         echo "Mounting up EFS from this EFS location: "
-        
+
         #construct the EFS DNS name
         EFS_MP=""$EFS_MT".efs."$REGION".amazonaws.com:/ "
 
         echo ""$EFS_MP"  "$SAPMNT"  nfs rw,soft,bg,timeo=3,intr 0 0"  >> $FSTAB_FILE
-        
-        #try to mount /sapmnt 3 times 
+
+        #try to mount /sapmnt 3 times
         mount /sapmnt > /dev/null
         sleep 5
 
@@ -401,14 +401,14 @@ set_sapmnt() {
     else
         #If EFS is *no*, we mount the /sapmnt filesystem from the ASCS server.
         #Supporting a single-AZ /sapmnt scenario is for intra-AZ fail-over scenarios.
-        #The /sapmnt filesystem is tied to the ASCS server (use a bigger ASCS instance/EBS vol. type if you need more throughput or IOPs for /sapmnt) 
+        #The /sapmnt filesystem is tied to the ASCS server (use a bigger ASCS instance/EBS vol. type if you need more throughput or IOPs for /sapmnt)
 
 
         #Mount /sapmnt from the ASCS server
 
         echo ""$ASCS_NAME:$SAPMNT"  "$SAPMNT"  nfs rw,soft,bg,timeo=3,intr 0 0"  >> $FSTAB_FILE
 
-        #try to mount /sapmnt 3 times 
+        #try to mount /sapmnt 3 times
         mount /sapmnt > /dev/null
         sleep 5
 
@@ -432,13 +432,13 @@ set_sapmnt() {
             sleep 60
         fi
 
-        
+
         #validate /sapmnt filesystems were created and mounted
         FS_SAPMNT=$(df -h | grep "$SAPMNT" | awk '{ print $NF }')
 
         if [ -z "$FS_SAPMNT" ]
         then
-	        #we did not successfully created the filesystems and mount points	
+	        #we did not successfully created the filesystems and mount points
 	        echo 1
         else
 	        #we did successfully created the filesystems and mount points
@@ -655,7 +655,7 @@ fi
 
 _SET_FILESYSTEMS=$(set_filesystems)
 
-_VAL_USR_SAP=$(df -h $USR_SAP) 
+_VAL_USR_SAP=$(df -h $USR_SAP)
 
 if [ -n "$_VAL_USR_SAP" ]
 then
@@ -749,7 +749,11 @@ set_pasinifile
 cd $SAPINST
 sleep 5
 
-./sapinst SAPINST_INPUT_PARAMETERS_URL="$DB_INI_FILE" SAPINST_EXECUTE_PRODUCT_ID="$DB_PRODUCT" SAPINST_USE_HOSTNAME="$HOSTNAME"  SAPINST_SKIP_DIALOGS="true" SAPINST_SLP_MODE="false"
+./sapinst SAPINST_INPUT_PARAMETERS_URL="$DB_INI_FILE" \
+          SAPINST_EXECUTE_PRODUCT_ID="$DB_PRODUCT" \
+          SAPINST_USE_HOSTNAME="$HOSTNAME" \
+          SAPINST_SKIP_DIALOGS="true" \
+          SAPINST_SLP_MODE="false"
 
 DB_DONE=$(su - "$SIDADM" -c "R3trans -d" | grep "R3trans finished (0000)")
 
@@ -769,12 +773,16 @@ then
     cd $SAPINST
     sleep 5
 
-   
-    ./sapinst SAPINST_INPUT_PARAMETERS_URL="$PAS_INI_FILE" SAPINST_EXECUTE_PRODUCT_ID="$PAS_PRODUCT" SAPINST_USE_HOSTNAME="$HOSTNAME"  SAPINST_SKIP_DIALOGS="true" SAPINST_SLP_MODE="false"
+
+    ./sapinst SAPINST_INPUT_PARAMETERS_URL="$PAS_INI_FILE" \
+              SAPINST_EXECUTE_PRODUCT_ID="$PAS_PRODUCT" \
+              SAPINST_USE_HOSTNAME="$HOSTNAME" \
+              SAPINST_SKIP_DIALOGS="true" \
+              SAPINST_SLP_MODE="false"
 
     #test if SAP is up
     _SAP_UP=$(netstat -an | grep 32"$SAPInstanceNum" | grep tcp | grep LISTEN | wc -l )
-	
+
     #create the /etc/sap-app-quickstart file
     #Save the sap entries in /etc/services to the /sapmnt share for PAS and ASCS instances
 
@@ -787,7 +795,11 @@ else
     cd $SAPINST
     sleep 5
 
-    ./sapinst SAPINST_INPUT_PARAMETERS_URL="$DB_INI_FILE" SAPINST_EXECUTE_PRODUCT_ID="$DB_PRODUCT" SAPINST_USE_HOSTNAME="$HOSTNAME"  SAPINST_SKIP_DIALOGS="true" SAPINST_SLP_MODE="false"
+    ./sapinst SAPINST_INPUT_PARAMETERS_URL="$DB_INI_FILE" \
+              SAPINST_EXECUTE_PRODUCT_ID="$DB_PRODUCT" \
+              SAPINST_USE_HOSTNAME="$HOSTNAME"  \
+              SAPINST_SKIP_DIALOGS="true" \
+              SAPINST_SLP_MODE="false"
 
     DB_DONE=$(su - "$SIDADM" -c "R3trans -d" | grep "R3trans finished (0000)")
 
@@ -800,18 +812,22 @@ else
     if [[ "$DB_DONE" =~ finished ]];
     then
 	    echo "Successfully installed DB instance"
-	    set_cleanup_dbinifile
+	    # RJ-debug:  set_cleanup_dbinifile
 
         #Install the PAS instance
         cd $SAPINST
         sleep 5
 
-   
-        ./sapinst SAPINST_INPUT_PARAMETERS_URL="$PAS_INI_FILE" SAPINST_EXECUTE_PRODUCT_ID="$PAS_PRODUCT" SAPINST_USE_HOSTNAME="$HOSTNAME"  SAPINST_SKIP_DIALOGS="true" SAPINST_SLP_MODE="false"
+
+        ./sapinst SAPINST_INPUT_PARAMETERS_URL="$PAS_INI_FILE" \
+                  SAPINST_EXECUTE_PRODUCT_ID="$PAS_PRODUCT" \
+                  SAPINST_USE_HOSTNAME="$HOSTNAME"  \
+                  SAPINST_SKIP_DIALOGS="true" \
+                  SAPINST_SLP_MODE="false"
 
         #test if SAP is up
         _SAP_UP=$(netstat -an | grep 32"$SAPInstanceNum" | grep tcp | grep LISTEN | wc -l )
-	
+
         #create the /etc/sap-app-quickstart file
         #Save the sap entries in /etc/services to the /sapmnt share for PAS and ASCS instances
 
@@ -822,10 +838,13 @@ else
     else
 	    #Orig
         echo "SAP installed FAILED."
-	    set_cleanup_ascsinifile
+	    # RJ-debug:  set_cleanup_ascsinifile
 	    #signal the waithandler, 0=Success
 	    _ERR_LOG=$(find /tmp -type f -name "sapinst_dev.log")
 	    _PASS_ERR=$(grep ERR "$_ERR_LOG" | grep -i password)
-	    /root/install/signalFinalStatus.sh 1 "SAP PAS install RETRY Failed...PAS not installed 2nd retry...password error?= "$_PASS_ERR" "
+
+      # RJ-debug
+      /root/install/signalFinalStatus.sh 0 "RJ-debug: SAP PAS install RETRY Failed...PAS not installed 2nd retry...password error?= "$_PASS_ERR" "
+      ##/root/install/signalFinalStatus.sh 1 "SAP PAS install RETRY Failed...PAS not installed 2nd retry...password error?= "$_PASS_ERR" "
     fi
 fi

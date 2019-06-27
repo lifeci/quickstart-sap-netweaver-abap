@@ -133,14 +133,11 @@ log '================================================================='
 # else
 # removed check_hardware
 
-ls -la ${SCRIPT_DIR}; ls -la $PASSFILE   # RJ-debug
+ls -la ${SCRIPT_DIR};
 
-log 'allow to execute binary recursively';
-
-chmod -R +x $HANAMEDIA/*;
-
-log 'Strarting installation HANADB';
-
+log 'allow to execute binary recursively' && \
+chmod -R +x $HANAMEDIA/* && \
+log 'Strarting installation HANADB' && \
 cat $PASSFILE | \
     $HANAMEDIA/HDB_LCM_LINUX_X86_64/hdblcm \
     --action=install --components=client,server --batch --autostart=1 \

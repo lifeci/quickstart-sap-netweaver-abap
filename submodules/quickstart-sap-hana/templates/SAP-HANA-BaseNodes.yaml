@@ -3,6 +3,9 @@
 AWSTemplateFormatVersion: 2010-09-09
 Description: (0008) Deploy SAP HANA on AWS
 Parameters:
+  RdpAmi:
+    Type: String
+    Default: ''
   RdpVersion:
     Type: String
     Default: WS2012R2
@@ -264,6 +267,31 @@ Parameters:
     Default: UC
     Description: 'The TimeZone of your SAP HANA Server (PT, CT, ET, or UTC)'
     Type: String
+
+
+  RestoreFrombackup:
+    Type: String
+    Description: Download backup files condition
+    Default: 'No'
+    AllowedValues:
+      - 'Yes'
+      - 'No'
+
+  BackupS3Path:
+    Type: String
+    Description: like s3://bucket/SET_2019_xxx/backup/
+    Default: ''
+
+  BackupDestination:
+    Type: String
+    Description: Where to download backup files | like  /backup/data/HDB/DB_HDB
+    Default: ''
+
+  BackupFileNameStartWith:
+    Type: String
+    Description: name pattern for actually backup files (excluding configuration)
+    Default: 'COMPLETE_DATA_BACKUP'
+
 Metadata:
   'AWS::CloudFormation::Interface':
     ParameterGroups:
@@ -555,12 +583,9 @@ Mappings:
       SLES12SP1HVM: suse-sles-12-sp1-v20161021-hvm-ssd-x86_64
       SLES12SP2HVM: suse-sles-12-sp2-v20170620-hvm-ssd-x86_64
       SLES12SP3HVM: suse-sles-12-sp3-v20181004-hvm-ssd-x86_64
-      SLES12SP1SAPHVM: >-
-        suse-sles-sap-12-sp1-v20171121-hvm-ssd-x86_64-f0188081-b780-4ee4-aef6-cbcb063fd11e-ami-8bac24f1.4
-      SLES12SP2SAPHVM: >-
-        suse-sles-sap-12-sp2-v20180706-hvm-ssd-x86_64-e3458d64-5c36-4577-bd98-0ee19e3eaeec-ami-3ac5ea45.4
-      SLES12SP3SAPHVM: >-
-        suse-sles-sap-12-sp3-v20180814-hvm-ssd-x86_64-da7aa9c3-97db-4573-89a6-7fe7348d90b0-ami-0df5b06332b816a8e.4
+      SLES12SP1SAPHVM: suse-sles-sap-12-sp1-v20171121-hvm-ssd-x86_64-f0188081-b780-4ee4-aef6-cbcb063fd11e-ami-8bac24f1.4
+      SLES12SP2SAPHVM: suse-sles-sap-12-sp2-v20180706-hvm-ssd-x86_64-e3458d64-5c36-4577-bd98-0ee19e3eaeec-ami-3ac5ea45.4
+      SLES12SP3SAPHVM: suse-sles-sap-12-sp3-v20180814-hvm-ssd-x86_64-da7aa9c3-97db-4573-89a6-7fe7348d90b0-ami-0df5b06332b816a8e.4
       SLES12SP1SAPBYOSHVM: suse-sles-sap-12-sp1-byos-v20170123-hvm-ssd-x86_64
       SLES12SP2SAPBYOSHVM: suse-sles-sap-12-sp2-byos-v20180816-hvm-ssd-x86_64
       SLES12SP3SAPBYOSHVM: suse-sles-sap-12-sp3-byos-v20180814-hvm-ssd-x86_64
@@ -1446,10 +1471,11 @@ Resources:
         - NetworkInterfaceId: !Ref RDPInterface
           DeviceIndex: '0'
       KeyName: !Ref KeyName
-      ImageId: !FindInMap
-        - AWSAMIRegionMap
-        - !Ref 'AWS::Region'
-        - !Ref RdpVersion #WS2012R2
+      ImageId: !Ref RdpAmi
+      #ImageId: !FindInMap
+      #  - AWSAMIRegionMap
+      #  - !Ref 'AWS::Region'
+      #  - !Ref RdpVersion #WS2012R2
       IamInstanceProfile: !Ref RDPProfile
       Tags:
         - Key: Name
@@ -1499,6 +1525,7 @@ Resources:
             - |
               echo "completed bootstrap";
             - </powershell>
+
   HANAMasterInstance:
     Type: 'AWS::EC2::Instance'
     Metadata:
@@ -1683,7 +1710,7 @@ Resources:
             - sh /root/install/writeconfig.sh IsWorkerNode=0
             - |+
 
-            - sh /root/install/writeconfig.sh BACKUP_VOL=st1
+            - sh /root/install/writeconfig.sh BACKUP_VOL=gp2
             - |+
 
             - sh /root/install/writeconfig.sh SHARED_VOL=gp2
@@ -1711,6 +1738,26 @@ Resources:
             - sh /root/install/writeconfig.sh REGION=
             - !Ref 'AWS::Region'
             - |+
+
+
+
+            - sh /root/install/writeconfig.sh RESTORE_FROM_BACKUP=
+            - !Ref RestoreFrombackup
+            - |+
+
+            - sh /root/install/writeconfig.sh BACKUP_S3_PATH=
+            - !Ref BackupS3Path
+            - |+
+
+            - sh /root/install/writeconfig.sh BACKUP_DESTINATION=
+            - !Ref BackupDestination
+            - |+
+
+            - sh /root/install/writeconfig.sh BACKUP_FILENAME_START_WITH=
+            - !Ref BackupFileNameStartWith
+            - |+
+
+
 
             - |
               sh /root/install/install-aws.sh
@@ -1797,6 +1844,7 @@ Resources:
             - |+
 
       InstanceType: !Ref MyInstanceType
+
   PlacementGroup:
     Type: 'AWS::EC2::PlacementGroup'
     Properties:

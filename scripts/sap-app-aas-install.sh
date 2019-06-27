@@ -1,6 +1,6 @@
 #!/bin/bash -x
 
-
+echo "THIS IS scripts/sap-app-aas-install.sh"
 #
 
 #   This code was written by somckitk@amazon.com.
@@ -43,16 +43,14 @@ then
     SW_TARGET="/sapmnt/SWPM"
     SAPINST="/sapmnt/SWPM/sapinst"
     SRC_INI_DIR="/root/install"
-    INI_FILE="/sapmnt/SWPM/APPX_D00_Linux_HDB.params"
 else
     #7.5
     INI_FILE="/sapmnt/SWPM/NW75/APPX_D00_Linux_HDB.params"
-    PRODUCT="NW_DI:NW752.HDB.ABAPHA"
-      #PRODUCT="NW_DI:NW750.HDB.ABAPHA"
+    PRODUCT="NW_DI:NW752.HDB.PD"
+      #PRODUCT="NW_DI:NW752.HDB.ABAPHA"
     SW_TARGET="/sapmnt/SWPM/NW75"
     SAPINST="/sapmnt/SWPM/NW75/sapinst"
     SRC_INI_DIR="/root/install/NW75"
-    INI_FILE="/sapmnt/SWPM/NW75/APPX_D00_Linux_HDB.params"
 fi
 
 #
@@ -623,297 +621,337 @@ set_SUSE_BYOS() {
 }
 
 ###Main Body###
-
-if [ -f "/etc/sap-app-quickstart" ]
-then
-        echo "****************************************************************"
-	echo "****************************************************************"
-        echo "The /etc/sap-app-quickstart file exists, exiting the Quick Start"
-        echo "****************************************************************"
-        echo "****************************************************************"
-        exit 0
-fi
-
-#Check to see if this is a BYOS system and register it if it is
-if [[ "$MyOS" =~ BYOS ]];
-then
-    _SUSE_BYOS=$(set_SUSE_BYOS)
-
-    if [ "$_SUSE_BYOS" == 0 ]
-    then
-	    echo "Successfully setup BYOS"
-    else
-	    echo "FAILED to setup BYOS...exiting"
-	    #signal the waithandler, 1=Failed
-        /root/install/signalFinalStatus.sh 1 \
-          "FAILED to setup BYOS...exiting"
-	    set_cleanup_aasinifile
-	    exit 1
-    fi
-fi
-
-_SET_NET=$(set_net)
+checking_sap_app_quickstart(){
+  if [ -f "/etc/sap-app-quickstart" ]
+  then
+          echo "****************************************************************"
+  	echo "****************************************************************"
+          echo "The /etc/sap-app-quickstart file exists, exiting the Quick Start"
+          echo "****************************************************************"
+          echo "****************************************************************"
+          exit 0
+  fi
+}
 
 
-if [ "$HOSTNAME" == $(hostname) ]
-then
-	echo "Successfully set and updated hostname"
-	set_DB_hostname
-else
-	echo "FAILED to set hostname"
-	#signal the waithandler, 1=Failed
-        /root/install/signalFinalStatus.sh 1 \
-          "Failed to set hostname"
-	set_cleanup_aasinifile
-	exit 1
-fi
-
-_SET_AWSCLI=$(set_update_cli)
-
-if [ "$_SET_AWSCLI" == 0 ]
-then
-	echo "Successfully installed AWS CLI"
-else
-	echo "FAILED to install AWS CLI...exiting"
-	#signal the waithandler, 1=Failed
-        /root/install/signalFinalStatus.sh 1 \
-          "FAILED to install AWS CLI...exiting"
-	set_cleanup_aasinifile
-	exit 1
-fi
-
-set_oss_configs
-
-_SET_SSM=$(set_install_ssm)
-
-if [ "$_SET_SSM" == 0 ]
-then
-	echo "Successfully installed SSM"
-else
-	echo "FAILED to install SSM...exiting"
-	#signal the waithandler, 1=Failed
-        /root/install/signalFinalStatus.sh 1 \
-          "FAILED to install ssm...exiting"
-	set_cleanup_aasinifile
-	exit 1
-fi
 
 
-_SET_UUIDD=$(set_uuidd)
+IsItBYOSlicense(){
+  #Check to see if this is a BYOS system and register it if it is
+  if [[ "$MyOS" =~ BYOS ]];
+  then
+      _SUSE_BYOS=$(set_SUSE_BYOS)
 
-if [ "$_SET_UUIDD" == 0 ]
-then
-	echo "Successfully installed UUIDD"
-else
-	echo "FAILED to install UUIDD...exiting"
-
-fi
-
-
-_SET_TZ=$(set_tz)
-
-if [ "$_SET_TZ" == 0 ]
-then
-	echo "Successfully updated TimeZone"
-else
-	echo "FAILED to update TimeZone...exiting"
-	#signal the waithandler, 1=Failed
-        /root/install/signalFinalStatus.sh 1 \
-          "FAILED to update TimeZone...exiting"
-	set_cleanup_aasinifile
-	exit 1
-fi
-
-_SET_NTP=$(set_ntp)
-
-if [ "$_SET_NTP" == 0 ]
-then
-	echo "Successfully updated NTP"
-else
-	echo "FAILED to update NTP...exiting"
-	#signal the waithandler, 1=Failed
-        /root/install/signalFinalStatus.sh 1 \
-          "FAILED to update NTP...exiting"
-	set_cleanup_aasinifile
-	exit 1
-fi
-
-set_install_jq
-
-_SET_FILESYSTEMS=$(set_filesystems)
-
-_VAL_USR_SAP=$(df -h $USR_SAP)
-
-if [ -n "$_VAL_USR_SAP" ]
-then
-	echo "Successfully updated $USR_SAP filesystem"
-else
-	echo "FAILED to update $USR_SAP filesystem...exiting"
-	#signal the waithandler, 1=Failed
-        /root/install/signalFinalStatus.sh 1 \
-          "FAILED to  update $USR_SAP filesystem...exiting"
-	set_cleanup_aasinifile
-	exit 1
-fi
-
-_SET_AWSDP=$(set_awsdataprovider)
-
-if [ "$_SET_AWSDP" == 0 ]
-then
-	echo "Successfully installed AWS Data Provider"
-else
-	echo "FAILED to install AWS Data Provider...exiting"
-	#signal the waithandler, 1=Failed
-        /root/install/signalFinalStatus.sh 1 \
-          "Failed to install AWS Data Provider...exiting"
-	set_cleanup_aasinifile
-	exit 1
-fi
+      if [ "$_SUSE_BYOS" == 0 ]
+      then
+  	    echo "Successfully setup BYOS"
+      else
+  	    echo "FAILED to setup BYOS...exiting"
+  	    #signal the waithandler, 1=Failed
+          /root/install/signalFinalStatus.sh 1 \
+            "FAILED to setup BYOS...exiting"
+  	    set_cleanup_aasinifile
+  	    exit 1
+      fi
+  fi
+}
 
 
-if [ "$INSTALL_SAP" == "No" ]
-then
-	echo "Completed setting up SAP App Server Infrastrucure."
-	echo "Exiting as the option to install SAP software was set to: $INSTALL_SAP"
-	#signal the waithandler, 0=Success
-	/root/install/signalFinalStatus.sh 0 \
-    "Finished. Exiting as the option to install SAP software was set to: $INSTALL_SAP"
-	exit 0
 
-fi
+CheckIsHostnameWasSet(){
+  if [ "$HOSTNAME" == $(hostname) ]
+  then
+  	echo "Successfully set and updated hostname"
+  	set_DB_hostname
+  else
+  	echo "FAILED to set hostname"
+  	#signal the waithandler, 1=Failed
+          /root/install/signalFinalStatus.sh 1 \
+            "Failed to set hostname"
+  	set_cleanup_aasinifile
+  	exit 1
+  fi
+}
 
-#MP=$(aws ssm get-parameters --names $SSM_PARAM_STORE --with-decryption --region $REGION --output text | awk '{ print $4}')
+IsAWScliWasInstalled(){
+  if [ "$_SET_AWSCLI" == 0 ]
+  then
+  	echo "Successfully installed AWS CLI"
+  else
+  	echo "FAILED to install AWS CLI...exiting"
+  	#signal the waithandler, 1=Failed
+          /root/install/signalFinalStatus.sh 1 \
+            "FAILED to install AWS CLI...exiting"
+  	set_cleanup_aasinifile
+  	exit 1
+  fi
+}
 
-MP=$(aws ssm get-parameters --names $SSM_PARAM_STORE --with-decryption --region $REGION --output table | grep Value | awk '{ print $4}')
-INVALID_MP=$(aws ssm get-parameters --names $SSM_PARAM_STORE --with-decryption --region $REGION --output text | awk '{ print $1}')
+IsSSMwasSet(){
+  if [ "$_SET_SSM" == 0 ]
+  then
+  	echo "Successfully installed SSM"
+  else
+  	echo "FAILED to install SSM...exiting"
+  	#signal the waithandler, 1=Failed
+          /root/install/signalFinalStatus.sh 1 \
+            "FAILED to install ssm...exiting"
+  	set_cleanup_aasinifile
+  	exit 1
+  fi
+}
 
-if [ "$INVALID_MP" == "INVALIDPARAMETERS" ]
-then
-	echo "Invalid encrypted SSM Parameter store: $SSM_PARAM_STORE...exiting"
-	#signal the waithandler, 1=Failed
-        /root/install/signalFinalStatus.sh 1 \
-          "Invalid SSM Parameter Store...exiting"
-	set_cleanup_aasinifile
-	exit 1
-fi
+_SET_UUIDD_CHECKING(){
+  if [ "$_SET_UUIDD" == 0 ]
+  then
+  	echo "Successfully installed UUIDD"
+  else
+  	echo "FAILED to install UUIDD...exiting"
 
-if [ -z "$MP" ]
-then
-	echo "Could not read encrypted SSM Parameter store: $SSM_PARAM_STORE...exiting"
-	#signal the waithandler, 1=Failed
-        /root/install/signalFinalStatus.sh 1 \
-          "Could not read encrypted SSM Parameter store: $SSM_PARAM_STORE...exiting"
-	set_cleanup_aasinifile
-	exit 1
-fi
+  fi
+
+}
+
+_SET_TZ_CHECKING(){
+  if [ "$_SET_TZ" == 0 ]
+  then
+  	echo "Successfully updated TimeZone"
+  else
+  	echo "FAILED to update TimeZone...exiting"
+  	#signal the waithandler, 1=Failed
+          /root/install/signalFinalStatus.sh 1 \
+            "FAILED to update TimeZone...exiting"
+  	set_cleanup_aasinifile
+  	exit 1
+  fi
+}
+
+_SET_NTP_CHECKING(){
+  if [ "$_SET_NTP" == 0 ]
+  then
+  	echo "Successfully updated NTP"
+  else
+  	echo "FAILED to update NTP...exiting"
+  	#signal the waithandler, 1=Failed
+          /root/install/signalFinalStatus.sh 1 \
+            "FAILED to update NTP...exiting"
+  	set_cleanup_aasinifile
+  	exit 1
+  fi
+}
+
+USR_SAP_UPDATE_CHECKING(){
+  if [ -n "$_VAL_USR_SAP" ]
+  then
+  	echo "Successfully updated $USR_SAP filesystem"
+  else
+  	echo "FAILED to update $USR_SAP filesystem...exiting"
+  	#signal the waithandler, 1=Failed
+          /root/install/signalFinalStatus.sh 1 \
+            "FAILED to  update $USR_SAP filesystem...exiting"
+  	set_cleanup_aasinifile
+  	exit 1
+  fi
+}
+
+_SET_AWSDP_CHECKING(){
+  if [ "$_SET_AWSDP" == 0 ]
+  then
+  	echo "Successfully installed AWS Data Provider"
+  else
+  	echo "FAILED to install AWS Data Provider...exiting"
+  	#signal the waithandler, 1=Failed
+          /root/install/signalFinalStatus.sh 1 \
+            "Failed to install AWS Data Provider...exiting"
+  	set_cleanup_aasinifile
+  	exit 1
+  fi
+}
+
+EXIT_IF_INSTALL_SAP_NOT_REQUIRED(){
+  if [ "$INSTALL_SAP" == "No" ]
+  then
+  	echo "Completed setting up SAP App Server Infrastrucure."
+  	echo "Exiting as the option to install SAP software was set to: $INSTALL_SAP"
+  	#signal the waithandler, 0=Success
+  	/root/install/signalFinalStatus.sh 0 \
+      "Finished. Exiting as the option to install SAP software was set to: $INSTALL_SAP"
+  	exit 0
+  fi
+}
+
+GET_SSM_PARAMETERS(){
+  #MP=$(aws ssm get-parameters --names $SSM_PARAM_STORE --with-decryption --region $REGION --output text | awk '{ print $4}')
+  MP=$(aws ssm get-parameters --names $SSM_PARAM_STORE --with-decryption --region $REGION --output table | grep Value | awk '{ print $4}')
+  INVALID_MP=$(aws ssm get-parameters --names $SSM_PARAM_STORE --with-decryption --region $REGION --output text | awk '{ print $1}')
+
+  if [ "$INVALID_MP" == "INVALIDPARAMETERS" ]
+  then
+  	echo "Invalid encrypted SSM Parameter store: $SSM_PARAM_STORE...exiting"
+  	#signal the waithandler, 1=Failed
+          /root/install/signalFinalStatus.sh 1 \
+            "Invalid SSM Parameter Store...exiting"
+  	set_cleanup_aasinifile
+  	exit 1
+  fi
+
+  if [ -z "$MP" ]
+  then
+  	echo "Could not read encrypted SSM Parameter store: $SSM_PARAM_STORE...exiting"
+  	#signal the waithandler, 1=Failed
+          /root/install/signalFinalStatus.sh 1 \
+            "Could not read encrypted SSM Parameter store: $SSM_PARAM_STORE...exiting"
+  	set_cleanup_aasinifile
+  	exit 1
+  fi
+}
+
+_SAPMNT_CHECKING(){
+  if [ "$_SAPMNT" == "$SAPMNT"  ]
+  then
+  	echo "Successfully setup /sapmnt"
+  else
+  	echo "Failed to mount $SAPMNT...exiting"
+  	#signal the waithandler, 1=Failed
+         	/root/install/signalFinalStatus.sh 1 \
+            "Failed to mount $SAPMNT...exiting"
+  	set_cleanup_aasinifile
+  	exit 1
+  fi
+}
+
+INI_FILE_CHECKING(){
+  INI_FILE=$(cat /tmp/INI_FILE)
+
+  if [ ! -f "$INI_FILE" ]
+  then
+  	echo "Exiting script...no INI FILE...$INI_FILE"
+  	#signal the waithandler, 1=Failed
+          /root/install/signalFinalStatus.sh 1 \
+            "Exiting script...no INI FILE...$INI_FILE"
+  	set_cleanup_aasinifile
+  	exit 1
+  fi
+
+}
 
 
-_SET_SAPMNT=$(set_sapmnt)
+PRE_INSTALL_CHECK_AND_SET_PARAMETERS(){
+  checking_sap_app_quickstart;
+  IsItBYOSlicense;
+  _SET_NET=$(set_net);
+  CheckIsHostnameWasSet;
+  _SET_AWSCLI=$(set_update_cli);
+  IsAWScliWasInstalled;
+  set_oss_configs;
+  _SET_SSM=$(set_install_ssm);
+  IsSSMwasSet;
 
-_SAPMNT=$(df -h $SAPMNT | awk '{ print $NF }' | tail -1)
+  _SET_UUIDD=$(set_uuidd);   _SET_UUIDD_CHECKING;
+  _SET_TZ=$(set_tz);         _SET_TZ_CHECKING;
+  _SET_NTP=$(set_ntp);       _SET_NTP_CHECKING;
+  set_install_jq;
+  _SET_FILESYSTEMS=$(set_filesystems);
 
-if [ "$_SAPMNT" == "$SAPMNT"  ]
-then
-	echo "Successfully setup /sapmnt"
-else
-	echo "Failed to mount $SAPMNT...exiting"
-	#signal the waithandler, 1=Failed
-       	/root/install/signalFinalStatus.sh 1 \
-          "Failed to mount $SAPMNT...exiting"
-	set_cleanup_aasinifile
-	exit 1
-fi
+  _VAL_USR_SAP=$(df -h $USR_SAP);
+  USR_SAP_UPDATE_CHECKING;
+  _SET_AWSDP=$(set_awsdataprovider); _SET_AWSDP_CHECKING;
 
-
-###Execute sapinst###
-
-set_ini_file
-
-INI_FILE=$(cat /tmp/INI_FILE)
-
-if [ ! -f "$INI_FILE" ]
-then
-	echo "Exiting script...no INI FILE...$INI_FILE"
-	#signal the waithandler, 1=Failed
-        /root/install/signalFinalStatus.sh 1 \
-          "Exiting script...no INI FILE...$INI_FILE"
-	set_cleanup_aasinifile
-	exit 1
-fi
+  EXIT_IF_INSTALL_SAP_NOT_REQUIRED;
+  GET_SSM_PARAMETERS;
+  _SET_SAPMNT=$(set_sapmnt)
+  _SAPMNT=$(df -h $SAPMNT | awk '{ print $NF }' | tail -1)
+  _SAPMNT_CHECKING;
 
 
-set_aasinifile
+  ###Execute sapinst###
+  set_ini_file; INI_FILE_CHECKING
 
-cd $SAPINST
-sleep 5
-  ./sapinst SAPINST_INPUT_PARAMETERS_URL="$INI_FILE" \
-            SAPINST_EXECUTE_PRODUCT_ID="$PRODUCT" \
-            SAPINST_USE_HOSTNAME="$HOSTNAME" \
-            SAPINST_SKIP_DIALOGS="true"
+  ### AAS EXECUTION ###
+  set_aasinifile;
+}
 
-#configure SAP Workprocesses
-#set_configSAPWP
-
-SIDADM=$(cat /tmp/SIDADM)
-HOSTNAME=$(hostname)
-su - $SIDADM -c "stopsap $HOSTNAME"
-su - $SIDADM -c "startsap $HOSTNAME"
-
-sleep 15
-
-#test if SAP is up
-_SAP_UP=$(netstat -an | grep 32"$SAPInstanceNum" | grep tcp | grep LISTEN | wc -l )
-
-echo "This is the value of SAP_UP: $_SAP_UP"
-
-if [ "$_SAP_UP" -eq 1 ]
-then
-	echo "Successfully installed SAP"
-	set_cleanup_aasinifile
-	set_dist_hosts
-	#signal the waithandler, 0=Success
-        /root/install/signalFinalStatus.sh 0 \
-          "Successfully installed SAP. SAP_UP value is: $_SAP_UP"
-	#create the /etc/sap-app-quickstart file
-	touch /etc/sap-app-quickstart
-	exit
-else
-	#retry the install and exit if it failed again
-    cd $SAPINST
-    sleep 5
+INSTALL_AAS(){
+  cd $SAPINST
+  echo "1st probe: SAPINST_INPUT_PARAMETERS_URL=$INI_FILE | SAPINST_EXECUTE_PRODUCT_ID=$PRODUCT | SAPINST_USE_HOSTNAME=$HOSTNAME";
+  sleep 5
     ./sapinst SAPINST_INPUT_PARAMETERS_URL="$INI_FILE" \
               SAPINST_EXECUTE_PRODUCT_ID="$PRODUCT" \
               SAPINST_USE_HOSTNAME="$HOSTNAME" \
               SAPINST_SKIP_DIALOGS="true"
 
-    SIDADM=$(cat /tmp/SIDADM)
-    HOSTNAME=$(hostname)
-    su - $SIDADM -c "stopsap $HOSTNAME"
-    su - $SIDADM -c "startsap $HOSTNAME"
+  #configure SAP Workprocesses
+  #set_configSAPWP
 
-    sleep 15
+  SIDADM=$(cat /tmp/SIDADM)
+  HOSTNAME=$(hostname)
+  su - $SIDADM -c "stopsap $HOSTNAME"
+  su - $SIDADM -c "startsap $HOSTNAME"
 
-    #test if SAP is up
-    _SAP_UP2=$(netstat -an | grep 32"$SAPInstanceNum" | grep tcp | grep LISTEN | wc -l )
+  sleep 15
 
-    if [ "$_SAP_UP2" -eq 1 ]
-    then
-	    echo "Successfully installed SAP"
-	    set_cleanup_aasinifile
-	    set_dist_hosts
-	    #signal the waithandler, 0=Success
-        /root/install/signalFinalStatus.sh 0 \
-          "Successfully installed SAP. SAP_UP value is: $_SAP_UP"
-	    #create the /etc/sap-app-quickstart file
-	    touch /etc/sap-app-quickstart
-	    exit
-    else
-        echo "SAP installed FAILED."
-	    #RJ-debug# set_cleanup_aasinifile
-	    #signal the waithandler, 0=Success
-	    _ERR_LOG=$(find /tmp -type f -name "sapinst_dev.log")
-	    _PASS_ERR=$(grep ERR "$_ERR_LOG" | grep -i password)
-	    /root/install/signalFinalStatus.sh 1 \
-        "SAP AAS install RETRY Failed...AAS not installed 2nd retry...password error?= "$_PASS_ERR" "
-    fi
-fi
+  #test if SAP is up
+  _SAP_UP=$(netstat -an | grep 32"$SAPInstanceNum" | grep tcp | grep LISTEN | wc -l )
+
+  echo "This is the value of SAP_UP: $_SAP_UP"
+
+  if [ "$_SAP_UP" -eq 1 ]
+  then
+    echo "Successfully installed SAP"
+    set_cleanup_aasinifile
+    set_dist_hosts
+    #signal the waithandler, 0=Success
+          /root/install/signalFinalStatus.sh 0 \
+            "Successfully installed SAP. SAP_UP value is: $_SAP_UP"
+    #create the /etc/sap-app-quickstart file
+    touch /etc/sap-app-quickstart
+    exit
+  else
+    #retry the install and exit if it failed again
+      cd $SAPINST
+      sleep 5
+      ./sapinst SAPINST_INPUT_PARAMETERS_URL="$INI_FILE" \
+                SAPINST_EXECUTE_PRODUCT_ID="$PRODUCT" \
+                SAPINST_USE_HOSTNAME="$HOSTNAME" \
+                SAPINST_SKIP_DIALOGS="true"
+
+      SIDADM=$(cat /tmp/SIDADM)
+      HOSTNAME=$(hostname)
+      su - $SIDADM -c "stopsap $HOSTNAME"
+      su - $SIDADM -c "startsap $HOSTNAME"
+
+      sleep 15
+
+      #test if SAP is up
+      _SAP_UP2=$(netstat -an | grep 32"$SAPInstanceNum" | grep tcp | grep LISTEN | wc -l )
+
+      if [ "$_SAP_UP2" -eq 1 ]
+      then
+        echo "Successfully installed SAP"
+        set_cleanup_aasinifile
+        set_dist_hosts
+        #signal the waithandler, 0=Success
+          /root/install/signalFinalStatus.sh 0 \
+            "Successfully installed SAP. SAP_UP value is: $_SAP_UP"
+        #create the /etc/sap-app-quickstart file
+        touch /etc/sap-app-quickstart
+        exit
+      else
+          echo "SAP installed FAILED."
+        #RJ-debug# set_cleanup_aasinifile
+        #signal the waithandler, 0=Success
+        _ERR_LOG=$(find /tmp -type f -name "sapinst_dev.log")
+        _PASS_ERR=$(grep ERR "$_ERR_LOG" | grep -i password)
+        #RJ-debug# /root/install/signalFinalStatus.sh 1 \
+        #RJ-debug#  "SAP AAS install RETRY Failed...AAS not installed 2nd retry...password error?= "$_PASS_ERR" "
+      fi
+  fi
+}
+
+
+#MAIN BODY#
+
+PRE_INSTALL_CHECK_AND_SET_PARAMETERS
+
+INSTALL_AAS;
+/root/install/signalFinalStatus.sh 0 "RJ-debug. Exiting for manual AAS steps on instance"

@@ -1,6 +1,6 @@
 #!/bin/bash -x
 
-
+echo "THIS IS scripts/sap-app-pas-install-single-hosts.sh"
 
 #
 #   This code was written by somckitk@amazon.com.
@@ -447,12 +447,12 @@ set_s3_download() {
 #download the s/w
 
           #download the media from the S3 bucket provided
-          _S3_DL=$(aws s3 sync "s3://${S3_BUCKET}/${S3_BUCKET_KP}" "$SW_TARGET" 2>&1 >/dev/null | grep "download failed")
+          _S3_DL=$(aws s3 sync "s3://${S3_BUCKET}/${S3_BUCKET_KP}" "$SW_TARGET" --include "*" --exclude "*COMPLETE_DATA_BACKUP*" 2>&1 >/dev/null | grep "download failed")
 
           if [ -n "$S3_DL" ]
           then
                #download failed for some reason, try to download again
-               _S3_DL2=$(aws s3 sync "s3://${S3_BUCKET}/${S3_BUCKET_KP}" "$SW_TARGET" 2>&1 >/dev/null | grep "download failed")
+               _S3_DL2=$(aws s3 sync "s3://${S3_BUCKET}/${S3_BUCKET_KP}" "$SW_TARGET" --include "*" --exclude "*COMPLETE_DATA_BACKUP*" 2>&1 >/dev/null | grep "download failed")
 
               if [ -n "$S3_DL2" ]
               then
@@ -476,7 +476,7 @@ set_s3_download() {
               echo 0
           else
 	      #retry the download again
-              aws s3 sync "s3://${S3_BUCKET}/${S3_BUCKET_KP}" "$SW_TARGET" > /dev/null
+              aws s3 sync "s3://${S3_BUCKET}/${S3_BUCKET_KP}" "$SW_TARGET" --include "*" --exclude "*COMPLETE_DATA_BACKUP*" > /dev/null
               #aws s3 sync "$S3_BUCKET/$S3_BUCKET_KP" "$SW_TARGET" > /dev/null
 
 
@@ -627,489 +627,527 @@ set_SUSE_BYOS() {
     fi
 }
 
-###Main Body###
-
-if [ -f "/etc/sap-app-quickstart" ]
-then
-        echo "****************************************************************"
-	echo "****************************************************************"
-        echo "The /etc/sap-app-quickstart file exists, exiting the Quick Start"
-        echo "****************************************************************"
-        echo "****************************************************************"
-        exit 0
-fi
-
-#Check to see if this is a BYOS system and register it if it is
-if [[ "$MyOS" =~ BYOS ]];
-then
-    _SUSE_BYOS=$(set_SUSE_BYOS)
-
-    if [ "$_SUSE_BYOS" == 0 ]
-    then
-	    echo "Successfully setup BYOS"
-    else
-	    echo "FAILED to setup BYOS...exiting"
-	    #signal the waithandler, 1=Failed
-        /root/install/signalFinalStatus.sh 1 "FAILED to setup BYOS...exiting"
-	    exit 1
-    fi
-fi
-
-#the cli needs to be updated in order to call ssm correctly
-
-echo
-echo "Start set_update_cli @ $(date)"
-echo
-set_update_cli
-
-_PIPVAL=$(rpm -qa | grep python-pip |wc -l)
-
-if [ "$_PIPVAL" -ne 1 ]
-then
-	echo "**AWS CLI not updated correctly...EXITING**"
-        /root/install/signalFinalStatus.sh 1 "**AWS CLI not updated correctly...EXITING**"
-	exit 1
-
-fi
-
-#test copy some logs
-
-#recreat the SSM param store as encrypted
-_MPINV=$(aws ssm get-parameters --names $SSM_PARAM_STORE --with-decryption --region $REGION --output text | awk '{ print $1}' | grep INVALID | wc -l)
-
-_MPVAL=$(aws ssm get-parameters --names $SSM_PARAM_STORE --with-decryption --region $REGION --output text | awk '{ print $NF}' | wc -l)
-
-while [ "$_MPVAL" -eq 0 -a "$_MPINV" -eq 0 ]
-do
-	echo "Waiting for SSM parameter store: $SSM_PARAM_STORE @ $(date)..."
-	_MPINV=$(aws ssm get-parameters --names $SSM_PARAM_STORE --with-decryption --region $REGION --output text | awk '{ print $1}' | grep INVALID | wc -l)
-	sleep 15
-done
-
-#Save the password
-#_MP=$(aws ssm get-parameters --names $SSM_PARAM_STORE --with-decryption --region $REGION --output text | awk '{ print $NF}')
-##The password used to be in $NF but moved to $4
-#_MP=$(aws ssm get-parameters --names $SSM_PARAM_STORE --with-decryption --region $REGION --output text | awk '{ print $4}')
-
-_MP=$(aws ssm get-parameters --names $SSM_PARAM_STORE --with-decryption --region $REGION --output table | grep Value | awk '{ print $4}')
-
-#Delete the existing SSM param store
-aws ssm delete-parameter --name $SSM_PARAM_STORE --region $REGION
-
-#Recreate SSM param store
-#Created an encrypted parameter_store for the master password
-aws ssm put-parameter --name $SSM_PARAM_STORE  --type "SecureString" --value "$_MP" --region $REGION
-
-#Store the pass for the SAP param files
-#MP=$(aws ssm get-parameters --names $SSM_PARAM_STORE --with-decryption --region $REGION --output text | awk '{ print $NF}')
-##The password used to be in $NF but moved to $4
-MP=$(aws ssm get-parameters --names $SSM_PARAM_STORE --with-decryption --region $REGION --output table | grep Value | awk '{ print $4}')
-
-
-echo
-echo "Start set_install_jq @ $(date)"
-echo
-set_install_jq
-
-_SET_UUIDD=$(set_uuidd)
-
-if [ "$_SET_UUIDD" == 0 ]
-then
-     systemctl enable uuidd
-     systemctl start uuidd
-     _UUID_UP=$(ps -ef | grep uuidd | grep -iv grep)
-
-     if [ "$_UUID_UP" ]
-     then
-         echo "Success, uuidd daemon install...will configure uuidd to auto start"
-
-     fi
-else
-     echo "FAILED, to install uuidd...exiting..."
-fi
-
-echo
-echo "Start set_tz @ $(date)"
-echo
-_SET_TZ=$(set_tz)
-
-if [ "$_SET_TZ" == 0 ]
-then
-     echo "Success, current TZ = $_CURRENT_TZ"
-else
-     echo "FAILED, current TZ = $_CURRENT_TZ"
-     /root/install/signalFinalStatus.sh 1 "FAILED, current TZ = $_CURRENT_TZ"
-     exit
-fi
-
-_SET_AWSDP=$(set_awsdataprovider)
-
-if [ "$_SET_AWSDP" == 0 ]
-then
-     echo "Successfully installed AWS Data Provider"
-else
-     echo "FAILED to install AWS Data Provider...exiting"
-     /root/install/signalFinalStatus.sh 1 "FAILED to install AWS Data Provider...exiting"
-     exit
-fi
-
-_SET_DNS_=$(set_net)
-
-_SET_NTP=$(set_ntp)
-
-if [ "$_SET_NTP" == 0 ]
-then
-     echo "Successfully set NTP"
-else
-     echo "FAILED to set NTP "
-     /root/install/signalFinalStatus.sh 1 "FAILED to set NTP"
-     exit
-fi
-
-#We need to determine if we are using EFS or a local /sapmnt
-if [ "$EFS" == "Yes" ]
-then
-    echo
-    echo "Start set_EFS @ $(date)"
-    echo
-    _SET_EFS=$(set_EFS)
-
-    _SAPMNT=$(df -h $SAPMNT | awk '{ print $NF }' | tail -1)
-
-    if [ "$_SAPMNT" == "$SAPMNT"  ]
-    then
-	    echo "Successfully setup /sapmnt"
-    else
-	    echo "Failed to mount $SAPMNT...exiting"
-	    #signal the waithandler, 1=Failed
-       	/root/install/signalFinalStatus.sh 1 "Failed to _SET_EFS for /sapmnt with EFS filesystem: $EFS_MP"
-	    set_cleanup_ascsinifile
-	    exit 1
-    fi
-else
-    echo
-    echo "Start set_filesystems @ $(date)"
-    echo
-    _SET_FS=$(set_filesystems)
-
-    if [ "$_SET_FS" == 0 ]
-    then
-        echo "Successfully created $USR_SAP and $SAPMNT"
-        echo
-        echo "Start set_nfsexport @ $(date)"
-        echo
-        _SET_NFS=$(set_nfsexport)
-        SHOWMOUNT=$(showmount -e | wc -l)
-
-        if [ "$_SET_NFS" == 0 -a $SHOWMOUNT -ge 2 ]
-        then
-             echo "Successfully exported NFS file(s)"
-        else
-             echo "FAILED to export NFS file(s)"
-             /root/install/signalFinalStatus.sh 1 "FAILED to export NFS file(s)"
-             echo "FAILED to set NFS export /sapmnt..."
-            /root/install/signalFinalStatus.sh 1 "Failed to NFS_EXPORT /sapmnt"
-            exit 1
-        fi
-    else
-    	 echo
-     	 echo "FAILED to set /usr/sap and /sapmnt..."
-         /root/install/signalFinalStatus.sh 1 "Failed to _SET_FS for /sapmnt"
-         exit 1
-	fi
-
-fi
-
-echo
-echo "Start set_s3_download @ $(date)"
-echo
-#_SET_S3=$(set_s3_download)
-set_s3_download; _SET_S3=$?; echo "EXIT CODE _SET_S3: $_SET_S3"
-if [ "$_SET_S3" == 0 ]
-then
-     echo "Successfully downloaded the s/w"
-else
-     echo
-     echo "FAILED to set /usr/sap and /sapmnt..."
-     echo "check /sapmnt/SWPM and permissions to your S3 SAP software bucket and key prefix:"$S3_BUCKET"/"$S3_BUCKET_KP" "
-     #log the error message
-     aws s3 sync "s3://${S3_BUCKET}/${S3_BUCKET_KP}" "$SW_TARGET" > /tmp/nw_s3_downnload_error.log 2>&1
-     S3_ERR=$(cat /tmp/nw_s3_downnload_error.log)
-     #signal the waithandler, 1=Failed
-     /root/install/signalFinalStatus.sh 1 \""FAILED to set /usr/sap and /sapmnt...check /sapmnt/SWPM and permissions to your S3 SAP software bucket:"$S3_BUCKET"/"$S3_BUCKET_KP" ERR= \"$S3_ERR\" "\"
-     set_cleanup_inifiles
-     exit
-fi
-
-echo
-echo "Start set_hostname @ $(date)"
-echo
-_SET_HOSTNAME=$(set_hostname)
-
-if [ "$_SET_HOSTNAME" == 0 ]
-then
-     echo "Successfully set and updated hostname"
-else
-     echo "FAILED to set hostname"
-     /root/install/signalFinalStatus.sh 1 "FAILED to set hostname"
-     exit
-fi
-
-
-set_oss_configs
-
-
-echo
-echo "Start set_install_ssm @ $(date)"
-echo
-set_install_ssm
-
-
-###Execute sapinst###
-
-if [ "$INSTALL_SAP" == "No" ]
-then
-	echo "Completed setting up SAP App Server Infrastrucure."
-	echo "Exiting as the option to install SAP software was set to: $INSTALL_SAP"
-	#signal the waithandler, 0=Success
-	/root/install/signalFinalStatus.sh 0 "Finished. Exiting as the option to install SAP software was set to: $INSTALL_SAP"
-        exit 0
-fi
-
-#**Install the ASCS and DB Instances**
-
-
-set_ascsinifile
-set_dbinifile
-set_pasinifile
-
-SID=$(echo "$SAP_SID" |tr '[:upper:]' '[:lower:]')
-SIDADM=$(echo $SID\adm)
-
-#Install the ASCS and DB Instances
-
-umask 006
-
-cd $SAPINST
-sleep 5
-
-#support multilple NW versions
-
-
-echo "Installing the ASCS instance...(1st try)"
-./sapinst SAPINST_INPUT_PARAMETERS_URL="$ASCS_INI_FILE" \
-          SAPINST_EXECUTE_PRODUCT_ID="$ASCS_PRODUCT" \
-          SAPINST_USE_HOSTNAME="$SAPPAS_HOSTNAME" \
-          SAPINST_SKIP_DIALOGS="true" \
-          SAPINST_SLP_MODE="false"
-
-su - "$SIDADM" -c "stopsap"
-sleep 5
-su - "$SIDADM" -c "startsap"
-sleep 15
-
-#test if SAP is up
-_SAP_UP=$(netstat -an | grep 32"$SAPInstanceNum" | grep tcp | grep LISTEN | wc -l )
-
-echo "This is the value of SAP_UP: $_SAP_UP"
-
-
-if [ "$_SAP_UP" -eq 1 ]
-then
-     echo "Successfully installed SAP"
-
-     #Proceed with the Database Install
-     cd /tmp
-     rm -rf sap*
-     echo "ls -l of /tmp/sapinst after rm..."
-     ls -l /tmp/*
-     echo
-     echo "Proceeding with database installation...(1st try)"
-     cd $SAPINST
-     #Prior to start of install...copy some logs
-     ./sapinst SAPINST_INPUT_PARAMETERS_URL="$DB_INI_FILE" \
-               SAPINST_EXECUTE_PRODUCT_ID="$DB_PRODUCT" \
-               SAPINST_USE_HOSTNAME="$SAPPAS_HOSTNAME" \
-               SAPINST_SKIP_DIALOGS="true" \
-               SAPINST_SLP_MODE="false"
-               #-nogui -noguiserver
-
-     DB_DONE=$(su - "$SIDADM" -c "R3trans -d" | grep "R3trans finished (0000)")
-
-     if [[ "$DB_DONE" =~ finished ]];
-     then
-          echo "DB installed"
-          #create the ASCS DONE file
-          touch "$ASCS_DONE"
-     fi
-else
-     echo "RETRY SAP install..."
-     cd /tmp
-     rm -rf sap*
-     echo "ls -l of /tmp/sapinst after rm..."
-     ls -l /tmp/*
-     chmod 6770 /tmp
-     chgrp sapinst /tmp
-     echo
-     cd $SAPINST
-     sleep 5
-     echo "Installing the ASCS instance...(2nd try)"
-     echo "ASCS = ABAP SAP Central Services"
-     ./sapinst SAPINST_INPUT_PARAMETERS_URL="$ASCS_INI_FILE" \
-               SAPINST_EXECUTE_PRODUCT_ID="$ASCS_PRODUCT" \
-               SAPINST_USE_HOSTNAME="$SAPPAS_HOSTNAME" \
-               SAPINST_SKIP_DIALOGS="true" \
-               SAPINST_SLP_MODE="false"
-               #-nogui -noguiserver
-
-     su - "$SIDADM" -c "stopsap"
-     sleep 5
-     su - "$SIDADM" -c "startsap"
-     sleep 5
-
-     #test if SAP is up
-     _SAP_UP=$(netstat -an | grep 32"$SAPInstanceNum" | grep tcp | grep LISTEN | wc -l )
-
-     echo "This is the value of SAP_UP: $_SAP_UP"
-
-
-     if [ "$_SAP_UP" -eq 1 ]
-     then
-          echo "ASCS installed after 2nd retry..."
-     else
-     	  _ERR_LOG=$(find /tmp -type f -name "sapinst_dev.log")
-	      _PASS_ERR=$(grep ERR "$_ERR_LOG" | grep -i password)
-        #RJ-debug# /root/install/signalFinalStatus.sh 1 "SAP ASCS install RETRY Failed...ASCS not installed 2nd retry...password error?= "$_PASS_ERR" "
-        echo "#RJ-debug#: /root/install/signalFinalStatus.sh 1 SAP ASCS install RETRY Failed...ASCS not installed 2nd retry...password error?= $_PASS_ERR "
-        exit 1
-     fi
-
-     #Proceed with the Database Install
-     cd /tmp
-     rm -rf sap*
-     cd $SAPINST
-     #Prior to start of install...copy some logs
-     echo "Proceeding with database installation...(2nd try)"
-     ./sapinst SAPINST_INPUT_PARAMETERS_URL="$DB_INI_FILE" \
-               SAPINST_EXECUTE_PRODUCT_ID="$DB_PRODUCT" \
-               SAPINST_USE_HOSTNAME="$SAPPAS_HOSTNAME" \
-               SAPINST_SKIP_DIALOGS="true" \
-               SAPINST_SLP_MODE="false"
-
-     #Check the DB
-     DB_DONE=$(su - $SIDADM -c "R3trans -d" | grep "R3trans finished (0000)")
-
-     if [[ "$DB_DONE" =~ finished ]];
-     then
-          echo "DB installed"
-          #create the ASCS DONE file
-          touch "$ASCS_DONE"
-     else
-          echo "DB not installed."
-          set_cleanup_inifiles
-          #/root/install/signalFinalStatus.sh 1 "SAP install RETRY Failed...DB not installed."
-          DB_DONE_ERR=$(su - $SIDADM -c "R3trans -d" > /tmp/sap_r3trans.log 2>&1 )
-          DB_DONE_LOG=$(cat /tmp/sap_r3trans.log )
-          /root/install/signalFinalStatus.sh 1 "SAP install RETRY Failed...DB not installed...LOG= "$DB_DONE_LOG" "
+PRE_INSTALL_CHECK(){
+  if [ -f "/etc/sap-app-quickstart" ]
+  then
+          echo "****************************************************************"
+  	echo "****************************************************************"
+          echo "The /etc/sap-app-quickstart file exists, exiting the Quick Start"
+          echo "****************************************************************"
+          echo "****************************************************************"
+          exit 0
+  fi
+
+  #Check to see if this is a BYOS system and register it if it is
+  if [[ "$MyOS" =~ BYOS ]];
+  then
+      _SUSE_BYOS=$(set_SUSE_BYOS)
+
+      if [ "$_SUSE_BYOS" == 0 ]
+      then
+  	    echo "Successfully setup BYOS"
+      else
+  	    echo "FAILED to setup BYOS...exiting"
+  	    #signal the waithandler, 1=Failed
+          /root/install/signalFinalStatus.sh 1 "FAILED to setup BYOS...exiting"
+  	    exit 1
+      fi
+  fi
+
+  #the cli needs to be updated in order to call ssm correctly
+
+  echo
+  echo "Start set_update_cli @ $(date)"
+  echo
+  set_update_cli
+
+  _PIPVAL=$(rpm -qa | grep python-pip |wc -l)
+
+  if [ "$_PIPVAL" -ne 1 ]
+  then
+  	echo "**AWS CLI not updated correctly...EXITING**"
+          /root/install/signalFinalStatus.sh 1 "**AWS CLI not updated correctly...EXITING**"
+  	exit 1
+
+  fi
+
+  #test copy some logs
+
+  #recreat the SSM param store as encrypted
+  _MPINV=$(aws ssm get-parameters --names $SSM_PARAM_STORE --with-decryption --region $REGION --output text | awk '{ print $1}' | grep INVALID | wc -l)
+
+  _MPVAL=$(aws ssm get-parameters --names $SSM_PARAM_STORE --with-decryption --region $REGION --output text | awk '{ print $NF}' | wc -l)
+
+  while [ "$_MPVAL" -eq 0 -a "$_MPINV" -eq 0 ]
+  do
+  	echo "Waiting for SSM parameter store: $SSM_PARAM_STORE @ $(date)..."
+  	_MPINV=$(aws ssm get-parameters --names $SSM_PARAM_STORE --with-decryption --region $REGION --output text | awk '{ print $1}' | grep INVALID | wc -l)
+  	sleep 15
+  done
+
+  #Save the password
+  #_MP=$(aws ssm get-parameters --names $SSM_PARAM_STORE --with-decryption --region $REGION --output text | awk '{ print $NF}')
+  ##The password used to be in $NF but moved to $4
+  #_MP=$(aws ssm get-parameters --names $SSM_PARAM_STORE --with-decryption --region $REGION --output text | awk '{ print $4}')
+
+  _MP=$(aws ssm get-parameters --names $SSM_PARAM_STORE --with-decryption --region $REGION --output table | grep Value | awk '{ print $4}')
+
+  #Delete the existing SSM param store
+  aws ssm delete-parameter --name $SSM_PARAM_STORE --region $REGION
+
+  #Recreate SSM param store
+  #Created an encrypted parameter_store for the master password
+  aws ssm put-parameter --name $SSM_PARAM_STORE  --type "SecureString" --value "$_MP" --region $REGION
+
+  #Store the pass for the SAP param files
+  #MP=$(aws ssm get-parameters --names $SSM_PARAM_STORE --with-decryption --region $REGION --output text | awk '{ print $NF}')
+  ##The password used to be in $NF but moved to $4
+  MP=$(aws ssm get-parameters --names $SSM_PARAM_STORE --with-decryption --region $REGION --output table | grep Value | awk '{ print $4}')
+
+
+  echo
+  echo "Start set_install_jq @ $(date)"
+  echo
+  set_install_jq
+
+  _SET_UUIDD=$(set_uuidd)
+
+  if [ "$_SET_UUIDD" == 0 ]
+  then
+       systemctl enable uuidd
+       systemctl start uuidd
+       _UUID_UP=$(ps -ef | grep uuidd | grep -iv grep)
+
+       if [ "$_UUID_UP" ]
+       then
+           echo "Success, uuidd daemon install...will configure uuidd to auto start"
+
+       fi
+  else
+       echo "FAILED, to install uuidd...exiting..."
+  fi
+
+  echo
+  echo "Start set_tz @ $(date)"
+  echo
+  _SET_TZ=$(set_tz)
+
+  if [ "$_SET_TZ" == 0 ]
+  then
+       echo "Success, current TZ = $_CURRENT_TZ"
+  else
+       echo "FAILED, current TZ = $_CURRENT_TZ"
+       /root/install/signalFinalStatus.sh 1 "FAILED, current TZ = $_CURRENT_TZ"
+       exit
+  fi
+
+  _SET_AWSDP=$(set_awsdataprovider)
+
+  if [ "$_SET_AWSDP" == 0 ]
+  then
+       echo "Successfully installed AWS Data Provider"
+  else
+       echo "FAILED to install AWS Data Provider...exiting"
+       /root/install/signalFinalStatus.sh 1 "FAILED to install AWS Data Provider...exiting"
+       exit
+  fi
+
+  _SET_DNS_=$(set_net)
+
+  _SET_NTP=$(set_ntp)
+
+  if [ "$_SET_NTP" == 0 ]
+  then
+       echo "Successfully set NTP"
+  else
+       echo "FAILED to set NTP "
+       /root/install/signalFinalStatus.sh 1 "FAILED to set NTP"
+       exit
+  fi
+
+  #We need to determine if we are using EFS or a local /sapmnt
+  if [ "$EFS" == "Yes" ]
+  then
+      echo
+      echo "Start set_EFS @ $(date)"
+      echo
+      _SET_EFS=$(set_EFS)
+
+      _SAPMNT=$(df -h $SAPMNT | awk '{ print $NF }' | tail -1)
+
+      if [ "$_SAPMNT" == "$SAPMNT"  ]
+      then
+  	    echo "Successfully setup /sapmnt"
+      else
+  	    echo "Failed to mount $SAPMNT...exiting"
+  	    #signal the waithandler, 1=Failed
+         	/root/install/signalFinalStatus.sh 1 "Failed to _SET_EFS for /sapmnt with EFS filesystem: $EFS_MP"
+  	    set_cleanup_ascsinifile
+  	    exit 1
+      fi
+  else
+      echo
+      echo "Start set_filesystems @ $(date)"
+      echo
+      _SET_FS=$(set_filesystems)
+
+      if [ "$_SET_FS" == 0 ]
+      then
+          echo "Successfully created $USR_SAP and $SAPMNT"
+          echo
+          echo "Start set_nfsexport @ $(date)"
+          echo
+          _SET_NFS=$(set_nfsexport)
+          SHOWMOUNT=$(showmount -e | wc -l)
+
+          if [ "$_SET_NFS" == 0 -a $SHOWMOUNT -ge 2 ]
+          then
+               echo "Successfully exported NFS file(s)"
+          else
+               echo "FAILED to export NFS file(s)"
+               /root/install/signalFinalStatus.sh 1 "FAILED to export NFS file(s)"
+               echo "FAILED to set NFS export /sapmnt..."
+              /root/install/signalFinalStatus.sh 1 "Failed to NFS_EXPORT /sapmnt"
+              exit 1
+          fi
+      else
+      	 echo
+       	 echo "FAILED to set /usr/sap and /sapmnt..."
+           /root/install/signalFinalStatus.sh 1 "Failed to _SET_FS for /sapmnt"
+           exit 1
+  	fi
+
+  fi
+}
+
+
+DOWNLOAD_MEDIA_AND_SET_PARAMETERS(){
+  echo
+  echo "Start set_s3_download @ $(date)"
+  echo
+  #_SET_S3=$(set_s3_download)
+  set_s3_download; _SET_S3=$?; echo "EXIT CODE _SET_S3: $_SET_S3"
+  if [ "$_SET_S3" == 0 ]
+  then
+       echo "Successfully downloaded the s/w"
+  else
+       echo
+       echo "FAILED to set /usr/sap and /sapmnt..."
+       echo "check /sapmnt/SWPM and permissions to your S3 SAP software bucket and key prefix:"$S3_BUCKET"/"$S3_BUCKET_KP" "
+       #log the error message
+
+       # SKIP DB DATA BACKUP for NW
+       aws s3 sync "s3://${S3_BUCKET}/${S3_BUCKET_KP}" "$SW_TARGET" --include "*" --exclude "*COMPLETE_DATA_BACKUP*" > /tmp/nw_s3_downnload_error.log 2>&1;
+
+       S3_ERR=$(cat /tmp/nw_s3_downnload_error.log)
+       #signal the waithandler, 1=Failed
+       /root/install/signalFinalStatus.sh 1 \""FAILED to set /usr/sap and /sapmnt...check /sapmnt/SWPM and permissions to your S3 SAP software bucket:"$S3_BUCKET"/"$S3_BUCKET_KP" ERR= \"$S3_ERR\" "\"
+       set_cleanup_inifiles
+       exit
+  fi
+
+  echo
+  echo "Start set_hostname @ $(date)"
+  echo
+  _SET_HOSTNAME=$(set_hostname)
+
+  if [ "$_SET_HOSTNAME" == 0 ]
+  then
+       echo "Successfully set and updated hostname"
+  else
+       echo "FAILED to set hostname"
+       /root/install/signalFinalStatus.sh 1 "FAILED to set hostname"
+       exit
+  fi
+
+
+  set_oss_configs
+
+  echo
+  echo "Start set_install_ssm @ $(date)"
+  echo
+  set_install_ssm
+
+  ###Execute sapinst###
+
+  if [ "$INSTALL_SAP" == "No" ]
+  then
+  	echo "Completed setting up SAP App Server Infrastrucure."
+  	echo "Exiting as the option to install SAP software was set to: $INSTALL_SAP"
+  	#signal the waithandler, 0=Success
+  	/root/install/signalFinalStatus.sh 0 "Finished. Exiting as the option to install SAP software was set to: $INSTALL_SAP"
+          exit 0
+  fi
+
+  #**Install the ASCS and DB Instances**
+
+
+  set_ascsinifile
+  set_dbinifile
+  set_pasinifile
+
+  SID=$(echo "$SAP_SID" |tr '[:upper:]' '[:lower:]')
+  SIDADM=$(echo $SID\adm)
+
+  #Install the ASCS and DB Instances
+
+  umask 006
+}
+
+
+INSTALL_ASCS(){
+  cd $SAPINST
+  sleep 5
+
+  #support multilple NW versions
+
+
+  echo "Installing the ASCS instance...(1st try)"
+  ./sapinst SAPINST_INPUT_PARAMETERS_URL="$ASCS_INI_FILE" \
+            SAPINST_EXECUTE_PRODUCT_ID="$ASCS_PRODUCT" \
+            SAPINST_USE_HOSTNAME="$SAPPAS_HOSTNAME" \
+            SAPINST_SKIP_DIALOGS="true" \
+            SAPINST_SLP_MODE="false"
+
+  su - "$SIDADM" -c "stopsap"
+  sleep 5
+  su - "$SIDADM" -c "startsap"
+  sleep 15
+
+  #test if SAP is up
+  _SAP_UP=$(netstat -an | grep 32"$SAPInstanceNum" | grep tcp | grep LISTEN | wc -l )
+
+  echo "This is the value of SAP_UP: $_SAP_UP"
+
+
+  if [ "$_SAP_UP" -eq 1 ]
+  then
+       echo "Successfully installed SAP"
+
+       #Proceed with the Database Install
+       cd /tmp
+       rm -rf sap*
+       echo "ls -l of /tmp/sapinst after rm..."
+       ls -l /tmp/*
+       echo
+       echo "Proceeding with database installation...(1st try)"
+       cd $SAPINST
+       #Prior to start of install...copy some logs
+       ./sapinst SAPINST_INPUT_PARAMETERS_URL="$DB_INI_FILE" \
+                 SAPINST_EXECUTE_PRODUCT_ID="$DB_PRODUCT" \
+                 SAPINST_USE_HOSTNAME="$SAPPAS_HOSTNAME" \
+                 SAPINST_SKIP_DIALOGS="true" \
+                 SAPINST_SLP_MODE="false"
+                 #-nogui -noguiserver
+
+       DB_DONE=$(su - "$SIDADM" -c "R3trans -d" | grep "R3trans finished (0000)")
+
+       if [[ "$DB_DONE" =~ finished ]];
+       then
+            echo "DB installed"
+            #create the ASCS DONE file
+            touch "$ASCS_DONE"
+       fi
+  else
+       echo "RETRY SAP install..."
+       cd /tmp
+       rm -rf sap*
+       echo "ls -l of /tmp/sapinst after rm..."
+       ls -l /tmp/*
+       chmod 6770 /tmp
+       chgrp sapinst /tmp
+       echo
+       cd $SAPINST
+       sleep 5
+       echo "Installing the ASCS instance...(2nd try)"
+       echo "ASCS = ABAP SAP Central Services"
+       ./sapinst SAPINST_INPUT_PARAMETERS_URL="$ASCS_INI_FILE" \
+                 SAPINST_EXECUTE_PRODUCT_ID="$ASCS_PRODUCT" \
+                 SAPINST_USE_HOSTNAME="$SAPPAS_HOSTNAME" \
+                 SAPINST_SKIP_DIALOGS="true" \
+                 SAPINST_SLP_MODE="false"
+                 #-nogui -noguiserver
+
+       su - "$SIDADM" -c "stopsap"
+       sleep 5
+       su - "$SIDADM" -c "startsap"
+       sleep 5
+
+       #test if SAP is up
+       _SAP_UP=$(netstat -an | grep 32"$SAPInstanceNum" | grep tcp | grep LISTEN | wc -l )
+
+       echo "This is the value of SAP_UP: $_SAP_UP"
+
+
+       if [ "$_SAP_UP" -eq 1 ]
+       then
+            echo "ASCS installed after 2nd retry..."
+       else
+       	  _ERR_LOG=$(find /tmp -type f -name "sapinst_dev.log")
+  	      _PASS_ERR=$(grep ERR "$_ERR_LOG" | grep -i password)
+          #RJ-debug# /root/install/signalFinalStatus.sh 1 "SAP ASCS install RETRY Failed...ASCS not installed 2nd retry...password error?= "$_PASS_ERR" "
+          echo "#RJ-debug#: /root/install/signalFinalStatus.sh 1 SAP ASCS install RETRY Failed...ASCS not installed 2nd retry...password error?= $_PASS_ERR "
           exit 1
-     fi
-fi
+       fi
+
+       #Proceed with the Database Install
+       cd /tmp
+       rm -rf sap*
+       cd $SAPINST
+       #Prior to start of install...copy some logs
+       echo "Proceeding with database installation...(2nd try)"
+       ./sapinst SAPINST_INPUT_PARAMETERS_URL="$DB_INI_FILE" \
+                 SAPINST_EXECUTE_PRODUCT_ID="$DB_PRODUCT" \
+                 SAPINST_USE_HOSTNAME="$SAPPAS_HOSTNAME" \
+                 SAPINST_SKIP_DIALOGS="true" \
+                 SAPINST_SLP_MODE="false"
+
+       #Check the DB
+       DB_DONE=$(su - $SIDADM -c "R3trans -d" | grep "R3trans finished (0000)")
+
+       if [[ "$DB_DONE" =~ finished ]];
+       then
+            echo "DB installed"
+            #create the ASCS DONE file
+            touch "$ASCS_DONE"
+       else
+            echo "DB not installed."
+            set_cleanup_inifiles
+            #/root/install/signalFinalStatus.sh 1 "SAP install RETRY Failed...DB not installed."
+            DB_DONE_ERR=$(su - $SIDADM -c "R3trans -d" > /tmp/sap_r3trans.log 2>&1 )
+            DB_DONE_LOG=$(cat /tmp/sap_r3trans.log )
+            /root/install/signalFinalStatus.sh 1 "SAP install RETRY Failed...DB not installed...LOG= "$DB_DONE_LOG" "
+            exit 1
+       fi
+  fi
 
 
-#exit if the ASCS_DONE file is not created
-if [ ! -e "$ASCS_DONE" ]
-then
-    echo "checking $ASCS_DONE file..."
-    _FILE=$(ls -l "$ASCS_DONE")
-    echo $_FILE
+  #exit if the ASCS_DONE file is not created
+  if [ ! -e "$ASCS_DONE" ]
+  then
+      echo "checking $ASCS_DONE file..."
+      _FILE=$(ls -l "$ASCS_DONE")
+      echo $_FILE
 
-    echo "$ASCS_DONE file does not exist...exiting"
-    set_cleanup_inifiles
-    /root/install/signalFinalStatus.sh 1 "ASCS_DONE file $ASCS_DONE does not exist...exiting"
-    exit 1
-fi
+      echo "$ASCS_DONE file does not exist...exiting"
+      set_cleanup_inifiles
+      /root/install/signalFinalStatus.sh 1 "ASCS_DONE file $ASCS_DONE does not exist...exiting"
+      exit 1
+  fi
 
-#Proceed with the PAS Install
+  #Proceed with the PAS Install
 
-#Save the sap entries in /etc/services to the /sapmnt share for PAS and ASCS instances
-_SET_SERVICES=$(set_save_services_file)
+  #Save the sap entries in /etc/services to the /sapmnt share for PAS and ASCS instances
+  _SET_SERVICES=$(set_save_services_file)
 
-if [ "$_SET_SERVICES" == 0 ]
-then
-     echo "Successfully set services file"
-else
-     echo  "FAILED to set services file"
-     set_cleanup_inifiles
-     /root/install/signalFinalStatus.sh 1 "FAILED to set services file"
-     exit 1
-fi
+  if [ "$_SET_SERVICES" == 0 ]
+  then
+       echo "Successfully set services file"
+  else
+       echo  "FAILED to set services file"
+       set_cleanup_inifiles
+       /root/install/signalFinalStatus.sh 1 "FAILED to set services file"
+       exit 1
+  fi
+}
 
-cd /tmp
-rm -rf sap*
-cd $SAPINST
-sleep 5
 
-#save logs to s3 bucket
-./sapinst SAPINST_INPUT_PARAMETERS_URL="$PAS_INI_FILE" \
-          SAPINST_EXECUTE_PRODUCT_ID="$PAS_PRODUCT" \
-          SAPINST_USE_HOSTNAME="$SAPPAS_HOSTNAME" \
-          SAPINST_SKIP_DIALOGS="true" \
-          SAPINST_SLP_MODE="false"
+INSTALL_PAS(){
+  cd /tmp
+  rm -rf sap*
+  cd $SAPINST
+  sleep 5
 
-#test if SAP is up
-_SAP_UP=$(netstat -an | grep 32"$SAPInstanceNum" | grep tcp | grep LISTEN | wc -l )
-
-echo "This is the value of SAP_UP: $_SAP_UP"
-
-if [ "$_SAP_UP" -eq 1 ]
-then
-	echo "Successfully installed SAP"
-	#create the PAS done file
-	touch "$PAS_DONE"
-	#signal the waithandler, 0=Success
-	/root/install/signalFinalStatus.sh 0 "Successfully installed SAP. First try..."
-        #RJ-debug# set_cleanup_inifiles
-	#create the /etc/sap-app-quickstart file
-	touch /etc/sap-app-quickstart
-	chmod 1777 /tmp
-	mv /var/run/dbus/system_bus_socket.bak /var/run/dbus/system_bus_socket
-	#save logs to s3 bucket
-	exit
-else
-	echo "RETRY SAP install..."
-
-	cd /tmp
-	rm -rf sap*
-	cd $SAPINST
-	sleep 5
-
-	./sapinst SAPINST_INPUT_PARAMETERS_URL="$PAS_INI_FILE" \
+  #save logs to s3 bucket
+  ./sapinst SAPINST_INPUT_PARAMETERS_URL="$PAS_INI_FILE" \
             SAPINST_EXECUTE_PRODUCT_ID="$PAS_PRODUCT" \
             SAPINST_USE_HOSTNAME="$SAPPAS_HOSTNAME" \
             SAPINST_SKIP_DIALOGS="true" \
             SAPINST_SLP_MODE="false"
 
-	#test if SAP is up
-	_SAP_UP=$(netstat -an | grep 32"$SAPInstanceNum" | grep tcp | grep LISTEN | wc -l )
+  #test if SAP is up
+  _SAP_UP=$(netstat -an | grep 32"$SAPInstanceNum" | grep tcp | grep LISTEN | wc -l )
 
-	echo "This is the value of SAP_UP: $_SAP_UP"
+  echo "This is the value of SAP_UP: $_SAP_UP"
 
-	if [ "$_SAP_UP" -eq 1 ]
-	then
-		#create the PAS done file
-		touch "$PAS_DONE"
-		#signal the waithandler, 0=Success
-		/root/install/signalFinalStatus.sh 0 "SAP successfully install...after RETRY"
-                #RJ-debug# set_cleanup_inifiles
-		#create the /etc/sap-app-quickstart file
-		touch /etc/sap-app-quickstart
-		chmod 1777 /tmp
-		mv /var/run/dbus/system_bus_socket.bak /var/run/dbus/system_bus_socket
-        else
-		echo "SAP PAS failed to install...exiting"
-		#signal the waithandler, 1=Failed
-		/root/install/signalFinalStatus.sh 1 "SAP PAS failed to install...exiting"
-                #RJ-debug# set_cleanup_inifiles
-		exit
-       fi
-fi
+  if [ "$_SAP_UP" -eq 1 ]
+  then
+  	echo "Successfully installed SAP"
+  	#create the PAS done file
+  	touch "$PAS_DONE"
+  	#signal the waithandler, 0=Success
+  	/root/install/signalFinalStatus.sh 0 "Successfully installed SAP. First try..."
+          #RJ-debug# set_cleanup_inifiles
+  	#create the /etc/sap-app-quickstart file
+  	touch /etc/sap-app-quickstart
+  	chmod 1777 /tmp
+  	mv /var/run/dbus/system_bus_socket.bak /var/run/dbus/system_bus_socket
+  	#save logs to s3 bucket
+  	exit
+  else
+  	echo "RETRY SAP install..."
+
+  	cd /tmp
+  	rm -rf sap*
+  	cd $SAPINST
+  	sleep 5
+
+  	./sapinst SAPINST_INPUT_PARAMETERS_URL="$PAS_INI_FILE" \
+              SAPINST_EXECUTE_PRODUCT_ID="$PAS_PRODUCT" \
+              SAPINST_USE_HOSTNAME="$SAPPAS_HOSTNAME" \
+              SAPINST_SKIP_DIALOGS="true" \
+              SAPINST_SLP_MODE="false"
+
+  	#test if SAP is up
+  	_SAP_UP=$(netstat -an | grep 32"$SAPInstanceNum" | grep tcp | grep LISTEN | wc -l )
+
+  	echo "This is the value of SAP_UP: $_SAP_UP"
+
+  	if [ "$_SAP_UP" -eq 1 ]
+  	then
+  		#create the PAS done file
+  		touch "$PAS_DONE"
+  		#signal the waithandler, 0=Success
+  		/root/install/signalFinalStatus.sh 0 "SAP successfully install...after RETRY"
+                  #RJ-debug# set_cleanup_inifiles
+  		#create the /etc/sap-app-quickstart file
+  		touch /etc/sap-app-quickstart
+  		chmod 1777 /tmp
+  		mv /var/run/dbus/system_bus_socket.bak /var/run/dbus/system_bus_socket
+          else
+  		echo "SAP PAS failed to install...exiting"
+  		#signal the waithandler, 1=Failed
+  		/root/install/signalFinalStatus.sh 1 "SAP PAS failed to install...exiting"
+                  #RJ-debug# set_cleanup_inifiles
+  		exit
+         fi
+  fi
+}
+
+RESTORE_INSTEAD_INSTALL(){
+  RESTORE_PAS_INI_FILE=/sapmnt/SWPM/NW75/backup/cpy.params
+  RESTORE_PAS_PRODUCT="NW_ABAP_OneHost:NW752.HDB.CP"
+  RESTORE_SAPINST_USE_HOSTNAME=${SAPPAS_HOSTNAME}
+
+  cd $SAPINST
+  ./sapinst SAPINST_INPUT_PARAMETERS_URL="${RESTORE_PAS_INI_FILE}" \
+            SAPINST_EXECUTE_PRODUCT_ID="${RESTORE_PAS_PRODUCT}" \
+            SAPINST_USE_HOSTNAME="${RESTORE_SAPINST_USE_HOSTNAME}" \
+            SAPINST_SKIP_DIALOGS="true" \
+            SAPINST_SLP_MODE="false"
+}
+
+###MAIN BODY###
+
+RESTORE_FROM_BACKUP=yes;
+
+PRE_INSTALL_CHECK && DOWNLOAD_MEDIA_AND_SET_PARAMETERS;
+
+if [ "${RESTORE_FROM_BACKUP}" == 'yes' ]; then
+  echo "executing restore"
+  RESTORE_INSTEAD_INSTALL;
+  /root/install/signalFinalStatus.sh 0 "RJ-debug. Exiting for manual ASCS and PAS steps on instance"
+else
+  # INSTALL_ASCS && INSTALL_PAS;
+  /root/install/signalFinalStatus.sh 0 "RJ-debug. Exiting for manual ASCS and PAS steps on instance"
+fi;
